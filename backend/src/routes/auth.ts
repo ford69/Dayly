@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import { z } from 'zod';
 import { getCollection } from '../db';
 import type { UserDoc } from '../models';
@@ -42,6 +43,15 @@ const emailPasswordSchema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(8).max(200),
 });
+const googleCredentialSchema = z.object({
+  credential: z.string().min(1),
+});
+
+let googleClient: OAuth2Client | null = null;
+function getGoogleClient() {
+  if (!googleClient) googleClient = new OAuth2Client();
+  return googleClient;
+}
 
 export const authRouter = Router();
 
@@ -97,6 +107,44 @@ authRouter.post('/login', async (req, res) => {
 authRouter.post('/logout', async (_req, res) => {
   clearAuthCookie(res);
   return res.json({ ok: true });
+});
+
+authRouter.post('/google', async (req, res) => {
+  if (!env.GOOGLE_CLIENT_ID) return res.status(500).json({ error: 'GOOGLE_CLIENT_ID is not configured' });
+
+  const parsed = googleCredentialSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid Google credential' });
+
+  try {
+    const ticket = await getGoogleClient().verifyIdToken({
+      idToken: parsed.data.credential,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const email = payload?.email?.trim().toLowerCase();
+    if (!email) return res.status(401).json({ error: 'Google account has no email' });
+
+    const users = await getCollection<UserDoc>('users');
+    await users.createIndex({ email: 1 }, { unique: true });
+
+    let user = await users.findOne({ email });
+    if (!user) {
+      const createdAt = new Date();
+      const result = await users.insertOne({
+        _id: new ObjectId(),
+        email,
+        passwordHash: '',
+        createdAt,
+      });
+      user = { _id: result.insertedId, email, passwordHash: '', createdAt };
+    }
+
+    const token = signAuthToken({ sub: user._id.toHexString(), email: user.email });
+    setAuthCookie(res, token);
+    return res.json({ user: publicUser(user) });
+  } catch {
+    return res.status(401).json({ error: 'Google authentication failed' });
+  }
 });
 
 authRouter.get('/me', async (req, res) => {

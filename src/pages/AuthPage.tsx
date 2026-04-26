@@ -1,33 +1,90 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 type Mode = 'login' | 'signup';
 
 function AppBadge({ label }: { label: string }) {
   return (
-    <div className="h-10 px-3 rounded-lg border border-white/15 bg-white/5 flex items-center gap-2">
-      <div className="h-6 w-6 rounded-md bg-white/10" />
+    <div className="h-10 px-3 rounded-lg border border-slate-200 bg-white flex items-center gap-2 shadow-sm">
+      <div className="h-6 w-6 rounded-md bg-slate-100" />
       <div className="leading-tight">
-        <div className="text-[10px] text-white/60">Download on</div>
-        <div className="text-xs font-semibold text-white">{label}</div>
+        <div className="text-[10px] text-slate-500">Download on</div>
+        <div className="text-xs font-semibold text-slate-700">{label}</div>
       </div>
     </div>
   );
 }
 
 export function AuthPage() {
-  const { login, signup } = useAuth();
+  const { login, signup, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
 
   const title = useMemo(() => (mode === 'login' ? 'Welcome back' : 'Welcome'), [mode]);
   const subtitle = useMemo(
     () => (mode === 'login' ? 'Enter your email to start planning' : 'Create your account to start planning'),
     [mode]
   );
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId || !googleButtonRef.current) return;
+    type GoogleApi = {
+      accounts?: {
+        id?: {
+          initialize: (config: { client_id: string; callback: (response: { credential?: string }) => void }) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+        };
+      };
+    };
+    const google = (window as Window & { google?: GoogleApi }).google;
+
+    const loadAndRender = () => {
+      const currentGoogle = (window as Window & { google?: GoogleApi }).google;
+      if (!currentGoogle?.accounts?.id || !googleButtonRef.current) return;
+
+      currentGoogle.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: { credential?: string }) => {
+          if (!response.credential) return;
+          try {
+            await loginWithGoogle(response.credential);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Google sign-in failed');
+          }
+        },
+      });
+
+      googleButtonRef.current.innerHTML = '';
+      currentGoogle.accounts.id.renderButton(googleButtonRef.current, {
+        theme: 'outline',
+        size: 'large',
+        shape: 'pill',
+        text: mode === 'login' ? 'signin_with' : 'signup_with',
+        width: 360,
+      });
+    };
+
+    if (google?.accounts?.id) {
+      loadAndRender();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = loadAndRender;
+    document.head.appendChild(script);
+
+    return () => {
+      script.onload = null;
+    };
+  }, [mode, loginWithGoogle]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,39 +101,44 @@ export function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0b10] text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/50 to-rose-50/40 text-slate-900">
       <div className="min-h-screen grid lg:grid-cols-2">
         <div className="relative hidden lg:block overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#f7efe8] via-[#c6d7ea] to-[#f2a3a1]" />
-          <div className="absolute inset-0 opacity-70 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.9),transparent_45%),radial-gradient(circle_at_85%_35%,rgba(255,255,255,0.75),transparent_55%),radial-gradient(circle_at_40%_85%,rgba(255,255,255,0.7),transparent_55%)]" />
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: "url('/login-bg.jpg')" }}
+          />
+          <div className="absolute inset-0 bg-white/58" />
+          <div className="absolute inset-0 opacity-70 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.95),transparent_45%),radial-gradient(circle_at_85%_30%,rgba(255,255,255,0.75),transparent_55%),radial-gradient(circle_at_40%_85%,rgba(255,255,255,0.8),transparent_55%)]" />
 
-          <div className="absolute left-10 top-10 w-[520px] max-w-[calc(100%-5rem)] rounded-3xl bg-white/55 backdrop-blur border border-white/50 shadow-2xl p-6">
-            <div className="h-8 w-36 rounded-lg bg-black/10" />
+          <div className="absolute left-10 top-10 w-[520px] max-w-[calc(100%-5rem)] rounded-3xl bg-white/75 backdrop-blur border border-white shadow-2xl p-6">
+            <div className="h-8 w-40 rounded-lg bg-slate-100" />
             <div className="mt-5 grid grid-cols-7 gap-3">
               {Array.from({ length: 28 }).map((_, i) => (
                 <div
                   key={i}
                   className={`h-12 rounded-xl ${
-                    i % 9 === 0 ? 'bg-emerald-200/70' : i % 11 === 0 ? 'bg-sky-200/70' : 'bg-white/65'
-                  } border border-black/5`}
+                    i % 9 === 0 ? 'bg-emerald-100' : i % 11 === 0 ? 'bg-sky-100' : 'bg-white'
+                  } border border-slate-100`}
                 />
               ))}
             </div>
           </div>
 
-          <div className="absolute left-24 bottom-14 w-[300px] rounded-2xl bg-white/55 backdrop-blur border border-white/50 shadow-xl p-4">
-            <div className="h-4 w-36 rounded bg-black/10" />
+          <div className="absolute left-24 bottom-14 w-[300px] rounded-2xl bg-white/80 backdrop-blur border border-white shadow-xl p-4">
+            <div className="h-4 w-32 rounded bg-slate-100" />
             <div className="mt-3 space-y-2">
-              <div className="h-10 rounded-xl bg-white/70 border border-black/5" />
-              <div className="h-10 rounded-xl bg-white/70 border border-black/5" />
+              <div className="h-10 rounded-xl bg-white border border-slate-100" />
+              <div className="h-10 rounded-xl bg-white border border-slate-100" />
             </div>
           </div>
         </div>
 
-        <div className="relative flex items-center justify-center px-6 py-16">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.08),transparent_55%)]" />
+        <div className="relative flex items-center justify-center px-6 py-16 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50/90 via-indigo-50/70 to-rose-50/70" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(129,140,248,0.12),transparent_55%)]" />
 
-          <div className="relative w-full max-w-md">
+          <div className="relative w-full max-w-md rounded-3xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-xl p-8 sm:p-10">
             <div className="flex items-center justify-center gap-3 mb-10">
               <img
                 src="/dayly.png"
@@ -85,44 +147,38 @@ export function AuthPage() {
               />
             </div>
 
-            <div className="flex items-center justify-center mb-6">
-              <div className="h-10 w-10 rounded-full border border-white/15 bg-white/5 flex items-center justify-center">
-                <div className="h-5 w-5 rounded-full border-2 border-white/60 rotate-12" />
-              </div>
-            </div>
-
             <h1 className="text-center text-3xl font-semibold">{title}</h1>
-            <p className="text-center text-white/60 mt-2">{subtitle}</p>
+            <p className="text-center text-slate-500 mt-2">{subtitle}</p>
 
             <form onSubmit={onSubmit} className="mt-8 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-white/70 mb-2">Email</label>
+                <label className="block text-xs font-medium text-slate-600 mb-2">Email</label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   type="email"
                   placeholder="Your email address"
                   autoComplete="email"
-                  className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 outline-none focus:ring-2 focus:ring-white/20"
+                  className="w-full h-11 rounded-xl bg-white border border-slate-200 px-4 outline-none focus:ring-2 focus:ring-indigo-200"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-white/70 mb-2">Password</label>
+                <label className="block text-xs font-medium text-slate-600 mb-2">Password</label>
                 <input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type="password"
                   placeholder="Your password"
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 outline-none focus:ring-2 focus:ring-white/20"
+                  className="w-full h-11 rounded-xl bg-white border border-slate-200 px-4 outline-none focus:ring-2 focus:ring-indigo-200"
                   required
                   minLength={8}
                 />
               </div>
 
               {error && (
-                <div className="text-sm text-rose-200 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+                <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
                   {error}
                 </div>
               )}
@@ -130,31 +186,44 @@ export function AuthPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-11 rounded-xl bg-white text-black font-semibold hover:bg-white/90 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                className="w-full h-11 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed transition"
               >
                 {submitting ? 'Please wait…' : mode === 'login' ? 'Get Started' : 'Create Account'}
               </button>
             </form>
 
-            <div className="mt-5 text-center text-xs text-white/60">
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+              <>
+                <div className="mt-4 mb-3 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  <span className="text-xs text-slate-500">or continue with</span>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
+                <div className="flex justify-center">
+                  <div ref={googleButtonRef} />
+                </div>
+              </>
+            )}
+
+            <div className="mt-5 text-center text-xs text-slate-500">
               {mode === 'login' ? (
                 <>
                   Don&apos;t have an account?{' '}
-                  <button className="text-white/90 underline underline-offset-4" onClick={() => setMode('signup')}>
+                  <button className="text-slate-900 underline underline-offset-4" onClick={() => setMode('signup')}>
                     Sign up
                   </button>
                 </>
               ) : (
                 <>
                   Already have an account?{' '}
-                  <button className="text-white/90 underline underline-offset-4" onClick={() => setMode('login')}>
+                  <button className="text-slate-900 underline underline-offset-4" onClick={() => setMode('login')}>
                     Log in
                   </button>
                 </>
               )}
             </div>
 
-            <div className="mt-10 text-center text-xs text-white/50">
+            <div className="mt-10 text-center text-xs text-slate-500">
               By continuing, you&apos;re signing up to My Daily Planner.
             </div>
 
@@ -163,16 +232,16 @@ export function AuthPage() {
               <AppBadge label="App Store" />
             </div>
 
-            <div className="mt-8 flex items-center justify-center gap-4 text-xs text-white/50">
-              <button className="hover:text-white/80 transition" type="button">
+            <div className="mt-8 flex items-center justify-center gap-4 text-xs text-slate-500">
+              <button className="hover:text-slate-700 transition" type="button">
                 Privacy Policy
               </button>
-              <span className="text-white/20">|</span>
-              <button className="hover:text-white/80 transition" type="button">
+              <span className="text-slate-300">|</span>
+              <button className="hover:text-slate-700 transition" type="button">
                 Terms of Service
               </button>
-              <span className="text-white/20">|</span>
-              <button className="hover:text-white/80 transition" type="button">
+              <span className="text-slate-300">|</span>
+              <button className="hover:text-slate-700 transition" type="button">
                 Data Processing
               </button>
             </div>

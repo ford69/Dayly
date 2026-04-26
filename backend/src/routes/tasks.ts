@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { getCollection } from '../db';
 import type { TaskDoc, TaskPriority, TaskStatus } from '../models';
-import { requireAuth, type AuthedRequest } from '../middleware/requireAuth';
+import { requireAuth } from '../middleware/requireAuth';
 
 function toPublicTask(t: TaskDoc) {
   return {
@@ -42,7 +42,8 @@ tasksRouter.use(requireAuth);
 
 tasksRouter.get('/', async (req, res) => {
   const date = typeof req.query.date === 'string' ? req.query.date : undefined;
-  const userId = new ObjectId((req as AuthedRequest).auth.sub);
+  if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
+  const userId = new ObjectId(req.auth.sub);
 
   const tasks = await getCollection<TaskDoc>('tasks');
   const query: Partial<Pick<TaskDoc, 'user_id' | 'date'>> = { user_id: userId };
@@ -55,8 +56,9 @@ tasksRouter.get('/', async (req, res) => {
 tasksRouter.post('/', async (req, res) => {
   const parsed = taskCreateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid task data' });
+  if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
 
-  const userId = new ObjectId((req as AuthedRequest).auth.sub);
+  const userId = new ObjectId(req.auth.sub);
   const tasks = await getCollection<TaskDoc>('tasks');
 
   const now = new Date().toISOString();
@@ -78,8 +80,9 @@ tasksRouter.put('/:id', async (req, res) => {
 
   const parsed = taskUpdateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid task data' });
+  if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
 
-  const userId = new ObjectId((req as AuthedRequest).auth.sub);
+  const userId = new ObjectId(req.auth.sub);
   const tasks = await getCollection<TaskDoc>('tasks');
 
   const now = new Date().toISOString();
@@ -98,8 +101,9 @@ tasksRouter.put('/:id', async (req, res) => {
 tasksRouter.delete('/:id', async (req, res) => {
   const id = req.params.id;
   if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid id' });
+  if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
 
-  const userId = new ObjectId((req as AuthedRequest).auth.sub);
+  const userId = new ObjectId(req.auth.sub);
   const tasks = await getCollection<TaskDoc>('tasks');
 
   const result = await tasks.deleteOne({ _id: new ObjectId(id), user_id: userId });
