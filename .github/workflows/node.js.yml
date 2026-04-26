@@ -1,0 +1,35 @@
+name: Dayly CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          npm test
+        env:
+          MONGODB_URI: test
+          JWT_SECRET: test
