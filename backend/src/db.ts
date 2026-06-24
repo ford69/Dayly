@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import ws from 'ws';
 import { env, getEnv } from './env';
 
 type GlobalWithSupabase = typeof globalThis & {
@@ -14,6 +15,7 @@ export function getSupabase(): SupabaseClient {
   if (!g.__supabase) {
     g.__supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
+      realtime: { transport: ws },
     });
   }
   return g.__supabase;
