@@ -1,11 +1,10 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 import { z } from 'zod';
-import { getCollection } from '../db';
-import type { UserDoc } from '../models';
+import { getSupabase } from '../db';
+import type { UserRow } from '../models';
 import { signAuthToken, verifyAuthToken } from '../auth';
 import { env } from '../env';
 
@@ -35,8 +34,8 @@ function readAuthToken(req: Request): string | null {
   return m?.[1] ?? null;
 }
 
-function publicUser(u: Pick<UserDoc, '_id' | 'email' | 'createdAt'>) {
-  return { id: u._id.toHexString(), email: u.email, createdAt: u.createdAt.toISOString() };
+function publicUser(u: Pick<UserRow, 'id' | 'email' | 'created_at'>) {
+  return { id: u.id, email: u.email, createdAt: u.created_at };
 }
 
 const emailPasswordSchema = z.object({
@@ -61,29 +60,25 @@ authRouter.post('/signup', async (req, res) => {
 
   const email = parsed.data.email.trim().toLowerCase();
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  const supabase = getSupabase();
 
-  const users = await getCollection<UserDoc>('users');
-  await users.createIndex({ email: 1 }, { unique: true });
+  const { data, error } = await supabase
+    .from('users')
+    .insert({ email, password_hash: passwordHash })
+    .select('id, email, created_at')
+    .single();
 
-  try {
-    const createdAt = new Date();
-    const result = await users.insertOne({
-      _id: new ObjectId(),
-      email,
-      passwordHash,
-      createdAt,
-    });
-
-    const token = signAuthToken({ sub: result.insertedId.toHexString(), email });
-    setAuthCookie(res, token);
-
-    return res.json({
-      user: publicUser({ _id: result.insertedId, email, createdAt }),
-    });
-  } catch (e: any) {
-    if (e?.code === 11000) return res.status(409).json({ error: 'Email already in use' });
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ error: 'Email already in use' });
     return res.status(500).json({ error: 'Failed to create account' });
   }
+
+  const token = signAuthToken({ sub: data.id, email });
+  setAuthCookie(res, token);
+
+  return res.json({
+    user: publicUser(data),
+  });
 });
 
 authRouter.post('/login', async (req, res) => {
@@ -91,14 +86,19 @@ authRouter.post('/login', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: 'Invalid email or password' });
 
   const email = parsed.data.email.trim().toLowerCase();
-  const users = await getCollection<UserDoc>('users');
-  const user = await users.findOne({ email });
-  if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+  const supabase = getSupabase();
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('id, email, password_hash, created_at')
+    .eq('email', email)
+    .maybeSingle();
 
-  const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (error || !user) return res.status(401).json({ error: 'Invalid email or password' });
+
+  const ok = await bcrypt.compare(parsed.data.password, user.password_hash);
   if (!ok) return res.status(401).json({ error: 'Invalid email or password' });
 
-  const token = signAuthToken({ sub: user._id.toHexString(), email: user.email });
+  const token = signAuthToken({ sub: user.id, email: user.email });
   setAuthCookie(res, token);
 
   return res.json({ user: publicUser(user) });
@@ -124,22 +124,39 @@ authRouter.post('/google', async (req, res) => {
     const email = payload?.email?.trim().toLowerCase();
     if (!email) return res.status(401).json({ error: 'Google account has no email' });
 
-    const users = await getCollection<UserDoc>('users');
-    await users.createIndex({ email: 1 }, { unique: true });
+    const supabase = getSupabase();
+    let { data: user } = await supabase
+      .from('users')
+      .select('id, email, created_at')
+      .eq('email', email)
+      .maybeSingle();
 
-    let user = await users.findOne({ email });
     if (!user) {
-      const createdAt = new Date();
-      const result = await users.insertOne({
-        _id: new ObjectId(),
-        email,
-        passwordHash: '',
-        createdAt,
-      });
-      user = { _id: result.insertedId, email, passwordHash: '', createdAt };
+      const { data: created, error } = await supabase
+        .from('users')
+        .insert({ email, password_hash: '' })
+        .select('id, email, created_at')
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          const { data: existing } = await supabase
+            .from('users')
+            .select('id, email, created_at')
+            .eq('email', email)
+            .single();
+          user = existing;
+        } else {
+          return res.status(500).json({ error: 'Failed to create account' });
+        }
+      } else {
+        user = created;
+      }
     }
 
-    const token = signAuthToken({ sub: user._id.toHexString(), email: user.email });
+    if (!user) return res.status(500).json({ error: 'Failed to create account' });
+
+    const token = signAuthToken({ sub: user.id, email: user.email });
     setAuthCookie(res, token);
     return res.json({ user: publicUser(user) });
   } catch {
@@ -153,12 +170,16 @@ authRouter.get('/me', async (req, res) => {
 
   try {
     const payload = verifyAuthToken(token);
-    const users = await getCollection<UserDoc>('users');
-    const user = await users.findOne({ _id: new ObjectId(payload.sub) }, { projection: { passwordHash: 0 } });
+    const supabase = getSupabase();
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, email, created_at')
+      .eq('id', payload.sub)
+      .maybeSingle();
+
     if (!user) return res.json({ user: null });
-    return res.json({ user: publicUser(user as any) });
+    return res.json({ user: publicUser(user) });
   } catch {
     return res.json({ user: null });
   }
 });
-

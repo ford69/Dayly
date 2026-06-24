@@ -1,26 +1,29 @@
-import { ObjectId } from 'mongodb';
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export type UserDoc = {
-  _id: ObjectId;
+export function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+export type UserRow = {
+  id: string;
   email: string;
-  passwordHash: string;
-  createdAt: Date;
+  password_hash: string;
+  created_at: string;
 };
 
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type TaskStatus = 'pending' | 'completed';
 
-export type TaskDoc = {
-  _id: ObjectId;
-  user_id: ObjectId;
+export type TaskRow = {
+  id: string;
+  user_id: string;
   title: string;
   description: string;
-  date: string; // YYYY-MM-DD
-  start_time: string; // HH:mm
-  end_time: string; // HH:mm
+  date: string;
+  start_time: string;
+  end_time: string;
   priority: TaskPriority;
   status: TaskStatus;
   created_at: string;
   updated_at: string;
 };
-

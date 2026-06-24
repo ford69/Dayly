@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { ObjectId } from 'mongodb';
+import { isUuid } from './models';
 import { env, getEnv } from './env';
 
 export type JwtPayload = {
@@ -19,7 +19,6 @@ export function verifyAuthToken(token: string): JwtPayload {
   const sub = (decoded as any).sub;
   const email = (decoded as any).email;
   if (typeof sub !== 'string' || typeof email !== 'string') throw new Error('Invalid token');
-  if (!ObjectId.isValid(sub)) throw new Error('Invalid token');
+  if (!isUuid(sub)) throw new Error('Invalid token');
   return { sub, email };
 }
-

@@ -31,5 +31,6 @@ jobs:
           cd backend
           npm test
         env:
-          MONGODB_URI: test
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: test
           JWT_SECRET: test

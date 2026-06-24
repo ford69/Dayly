@@ -1,20 +1,23 @@
-import { getCollection } from './db';
-import type { UserDoc, TaskDoc } from './models';
+import { getSupabase } from './db';
 import { getEnv } from './env';
 
 async function migrate() {
-  getEnv('MONGODB_URI');
-  getEnv('JWT_SECRET');
+  getEnv('SUPABASE_URL');
+  getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
-  const users = await getCollection<UserDoc>('users');
-  await users.createIndex({ email: 1 }, { unique: true });
+  const supabase = getSupabase();
 
-  const tasks = await getCollection<TaskDoc>('tasks');
-  await tasks.createIndex({ user_id: 1, date: 1, start_time: 1 });
-  await tasks.createIndex({ user_id: 1, status: 1 });
+  for (const table of ['users', 'tasks'] as const) {
+    const { error } = await supabase.from(table).select('*').limit(0);
+    if (error) {
+      throw new Error(
+        `Table "${table}" is not available. Apply migrations with "npm run db:push" or "supabase db push".\n${error.message}`
+      );
+    }
+  }
 
   // eslint-disable-next-line no-console
-  console.log('Migrations applied: users(email unique), tasks(user_id/date/start_time), tasks(user_id/status)');
+  console.log('Database schema verified: users, tasks');
 }
 
 migrate().catch((err) => {
@@ -22,4 +25,3 @@ migrate().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

@@ -11,7 +11,8 @@ export function getEnv(name: string): string {
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? "development",
   PORT: Number(process.env.PORT ?? 5174),
-  MONGODB_URI: process.env.MONGODB_URI ?? "",
+  SUPABASE_URL: process.env.SUPABASE_URL ?? "",
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   JWT_SECRET: process.env.JWT_SECRET ?? "",
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "",
   BREVO_API_KEY: process.env.BREVO_API_KEY ?? "",

@@ -2,14 +2,15 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { env, getEnv } from './env';
+import { getEnv } from './env';
 import { authRouter } from './routes/auth';
 import { tasksRouter } from './routes/tasks';
 import { alertsRouter } from './routes/alerts';
 
 export function createApp() {
   // ensure env is configured
-  getEnv('MONGODB_URI');
+  getEnv('SUPABASE_URL');
+  getEnv('SUPABASE_SERVICE_ROLE_KEY');
   getEnv('JWT_SECRET');
 
   const app = express();

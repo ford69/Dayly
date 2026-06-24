@@ -1,37 +1,20 @@
-import { MongoClient, Db, Collection } from 'mongodb';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env, getEnv } from './env';
 
-type GlobalWithMongo = typeof globalThis & {
-  __mongoClient?: MongoClient;
-  __mongoClientPromise?: Promise<MongoClient>;
+type GlobalWithSupabase = typeof globalThis & {
+  __supabase?: SupabaseClient;
 };
 
-const g = globalThis as GlobalWithMongo;
+const g = globalThis as GlobalWithSupabase;
 
-export async function getMongoClient(): Promise<MongoClient> {
-  if (!env.MONGODB_URI) getEnv('MONGODB_URI');
+export function getSupabase(): SupabaseClient {
+  if (!env.SUPABASE_URL) getEnv('SUPABASE_URL');
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
-  if (g.__mongoClient) return g.__mongoClient;
-  if (!g.__mongoClientPromise) {
-    const client = new MongoClient(env.MONGODB_URI);
-    g.__mongoClientPromise = client.connect().then((c) => {
-      g.__mongoClient = c;
-      return c;
+  if (!g.__supabase) {
+    g.__supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
     });
   }
-  return g.__mongoClientPromise;
+  return g.__supabase;
 }
-
-export async function getDb(): Promise<Db> {
-  const client = await getMongoClient();
-  // Prefer explicit DB name, otherwise use the DB name from the MongoDB URI.
-  const explicit = process.env.MONGODB_DB;
-  if (explicit && explicit.trim().length > 0) return client.db(explicit.trim());
-  return client.db();
-}
-
-export async function getCollection<T extends object>(name: string): Promise<Collection<T>> {
-  const db = await getDb();
-  return db.collection<T>(name);
-}
-
