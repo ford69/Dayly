@@ -1,5 +1,5 @@
+import { createRequire } from 'module';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import ws from 'ws';
 import { env, getEnv } from './env';
 
 type GlobalWithSupabase = typeof globalThis & {
@@ -13,8 +13,10 @@ function createSupabaseClient(): SupabaseClient {
     auth: { autoRefreshToken: false, persistSession: false },
   };
 
-  // Node 20 needs ws; Node 22+ (Vercel production) has native WebSocket.
+  // Node 20 needs ws; Node 22+ (Vercel) has native WebSocket.
   if (typeof globalThis.WebSocket === 'undefined') {
+    const nodeRequire = createRequire(__filename);
+    const ws = nodeRequire('ws') as typeof import('ws');
     options.realtime = { transport: ws as unknown as typeof WebSocket };
   }
 

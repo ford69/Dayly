@@ -1,6 +1,7 @@
 {
   "functions": {
     "api/index.ts": {
+      "includeFiles": "backend/src/**",
       "maxDuration": 30
     }
   },
