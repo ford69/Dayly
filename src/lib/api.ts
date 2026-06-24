@@ -14,7 +14,18 @@ export async function apiFetch<T>(
   });
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(
+        res.status === 404
+          ? 'API not found — the backend may not be deployed.'
+          : `Server returned an invalid response (${res.status}).`
+      );
+    }
+  }
 
   if (!res.ok) {
     const message =
