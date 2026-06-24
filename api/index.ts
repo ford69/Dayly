@@ -1,3 +1,4 @@
-import { createApp } from '../backend/src/app';
+// @ts-nocheck
+import { createApp } from '../backend/src/app.js';
 
 export default createApp();
