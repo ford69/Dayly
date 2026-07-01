@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Zap, Clock, CheckCircle2, TrendingUp, CalendarDays, ChevronRight, RefreshCw, Sparkles } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useTaskContext } from '../context/TaskContext';
 import { TaskCard } from '../components/TaskCard';
 import { Timeline } from '../components/Timeline';
@@ -9,6 +10,7 @@ import { MonthCalendar } from '../components/MonthCalendar';
 import { AgendaView } from '../components/AgendaView';
 import { HabitsPanel } from '../components/HabitsPanel';
 import { PlanMyDay } from '../components/PlanMyDay';
+import { TodaySummary } from '../components/TodaySummary';
 import { Task, ViewMode, Priority, Status } from '../lib/types';
 import { todayString, formatDate, isTaskActive, getCurrentTimeMinutes, timeToMinutes, weekDates, startOfWeek } from '../lib/utils';
 
@@ -38,6 +40,7 @@ function StatCard({ label, value, icon: Icon, color, darkMode }: {
 
 export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }: DashboardProps) {
   const { state, fetchTasks, clearPlan } = useTaskContext();
+  const { user } = useAuth();
   const { tasks, loading, darkMode, smartReminder } = state;
   const [showPlan, setShowPlan] = useState(false);
   const [search, setSearch] = useState('');
@@ -148,6 +151,14 @@ export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }:
             <p className={`text-sm ${darkMode ? 'text-amber-200' : 'text-amber-800'}`}>{smartReminder}</p>
           </div>
         )}
+
+        <TodaySummary
+          darkMode={darkMode}
+          refreshKey={completedToday}
+          todayTasks={todayTasks}
+          onEdit={onEdit}
+          emailRemindersEnabled={user?.emailRemindersEnabled}
+        />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard label="Today's Tasks" value={todayTasks.length} icon={CalendarDays} color="blue" darkMode={darkMode} />

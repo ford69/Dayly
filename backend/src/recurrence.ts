@@ -6,6 +6,14 @@ export function addDays(dateStr: string, days: number): string {
   return d.toISOString().split('T')[0];
 }
 
+export function todayString(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function occursOnDate(rule: RecurrenceRule, anchorDate: string, checkDate: string): boolean {
   if (rule === 'none') return anchorDate === checkDate;
   if (checkDate < anchorDate) return false;

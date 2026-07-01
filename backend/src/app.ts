@@ -6,6 +6,8 @@ import { authRouter } from './routes/auth';
 import { tasksRouter } from './routes/tasks';
 import { habitsRouter } from './routes/habits';
 import { planRouter } from './routes/plan';
+import { cronRouter } from './routes/cron';
+import { todayRouter } from './routes/today';
 import { alertsRouter } from './routes/alerts';
 
 export function createApp() {
@@ -25,6 +27,8 @@ export function createApp() {
   app.use('/api/tasks', tasksRouter);
   app.use('/api/habits', habitsRouter);
   app.use('/api/plan', planRouter);
+  app.use('/api/cron', cronRouter);
+  app.use('/api/today', todayRouter);
   app.use('/api/alerts', alertsRouter);
 
   // error handler

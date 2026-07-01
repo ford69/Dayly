@@ -18,4 +18,5 @@ export const env = {
   BREVO_API_KEY: process.env.BREVO_API_KEY ?? "",
   BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL ?? "",
   BREVO_SENDER_NAME: process.env.BREVO_SENDER_NAME ?? "My Daily Planner",
+  CRON_SECRET: process.env.CRON_SECRET ?? "",
 };

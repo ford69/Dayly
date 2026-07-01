@@ -51,6 +51,17 @@ export interface PlanSuggestion {
   reason: string;
 }
 
+export interface TodaySummary {
+  date: string;
+  do_today: { id: string; title: string; start_time: string; priority: Priority }[];
+  urgent: { id: string; title: string; start_time: string }[];
+  missed: { id: string; title: string; date: string; start_time: string }[];
+  streak: number;
+  productivity_score: number;
+  tasks_completed: number;
+  tasks_total: number;
+}
+
 export interface ReminderNotification {
   id: string;
   taskId: string;

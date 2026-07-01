@@ -8,6 +8,19 @@ import {
 } from '../recurrence';
 import { isUuid, type TaskPriority, type TaskRow, type TaskStatus } from '../models';
 import { requireAuth } from '../middleware/requireAuth';
+import { scheduleTaskReminders, cancelTaskNotifications } from '../jobs/scheduleReminders';
+import { upsertDailyStats } from '../services/todaySummary';
+
+async function afterTaskChange(userId: string, task: TaskRow) {
+  try {
+    const supabase = getSupabase();
+    const { data: user } = await supabase.from('users').select('email').eq('id', userId).maybeSingle();
+    if (user?.email) await scheduleTaskReminders(userId, task, user.email);
+    await upsertDailyStats(userId, task.date);
+  } catch {
+    // Non-blocking: reminders/stats should not fail task operations
+  }
+}
 
 async function getDependencyMap(userId: string, taskIds: string[]) {
   if (taskIds.length === 0) return new Map<string, string[]>();
@@ -170,11 +183,17 @@ tasksRouter.post('/', async (req, res) => {
   const { depends_on, recurrence_rule, recurrence_end, ...taskData } = parsed.data;
   const now = new Date().toISOString();
   const supabase = getSupabase();
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('workspace_id')
+    .eq('id', req.auth.sub)
+    .maybeSingle();
 
   const { data, error } = await supabase
     .from('tasks')
     .insert({
       user_id: req.auth.sub,
+      workspace_id: userRow?.workspace_id ?? null,
       ...taskData,
       recurrence_rule,
       recurrence_end: recurrence_end ?? null,
@@ -190,6 +209,7 @@ tasksRouter.post('/', async (req, res) => {
   const task = data as TaskRow;
   await syncDependencies(req.auth.sub, task.id, depends_on);
   if (recurrence_rule !== 'none') await generateRecurringInstances(req.auth.sub, task);
+  void afterTaskChange(req.auth.sub, task);
 
   const deps = depends_on;
   return res.status(201).json({ task: toPublicTask(task, { depends_on: deps, blocked: false }) });
@@ -218,9 +238,10 @@ tasksRouter.put('/:id', async (req, res) => {
   if (error) return res.status(500).json({ error: 'Failed to update task' });
   if (!data) return res.status(404).json({ error: 'Not found' });
 
-  if (depends_on !== undefined) await syncDependencies(req.auth.sub, id, depends_on);
-
   const task = data as TaskRow;
+  if (depends_on !== undefined) await syncDependencies(req.auth.sub, id, depends_on);
+  void afterTaskChange(req.auth.sub, task);
+
   const depMap = await getDependencyMap(req.auth.sub, [task.id]);
   const deps = depMap.get(task.id) ?? [];
 
@@ -267,6 +288,8 @@ tasksRouter.post('/:id/reschedule', async (req, res) => {
 
   if (updateError || !updated) return res.status(500).json({ error: 'Failed to reschedule' });
 
+  void afterTaskChange(req.auth.sub, updated as TaskRow);
+
   return res.json({ task: toPublicTask(updated as TaskRow), suggestion });
 });
 
@@ -286,5 +309,6 @@ tasksRouter.delete('/:id', async (req, res) => {
 
   if (error) return res.status(500).json({ error: 'Failed to delete task' });
   if (!data) return res.status(404).json({ error: 'Not found' });
+  await cancelTaskNotifications(id);
   return res.json({ ok: true });
 });

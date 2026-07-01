@@ -7,7 +7,7 @@ async function migrate() {
 
   const supabase = getSupabase();
 
-  for (const table of ['users', 'tasks', 'habits', 'habit_logs', 'task_dependencies', 'focus_sessions'] as const) {
+  for (const table of ['users', 'tasks', 'habits', 'habit_logs', 'task_dependencies', 'focus_sessions', 'workspaces', 'notification_queue', 'daily_stats'] as const) {
     const { error } = await supabase.from(table).select('*').limit(0);
     if (error) {
       throw new Error(
@@ -17,7 +17,7 @@ async function migrate() {
   }
 
   // eslint-disable-next-line no-console
-  console.log('Database schema verified: users, tasks, habits, habit_logs, task_dependencies, focus_sessions');
+  console.log('Database schema verified: users, tasks, habits, habit_logs, task_dependencies, focus_sessions, workspaces, notification_queue, daily_stats');
 }
 
 migrate().catch((err) => {

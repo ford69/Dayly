@@ -7,6 +7,7 @@ import { getSupabase } from '../db';
 import type { UserRow } from '../models';
 import { signAuthToken, verifyAuthToken } from '../auth';
 import { env } from '../env';
+import { ensurePersonalWorkspace } from '../workspace';
 
 const COOKIE_NAME = 'mdp_token';
 
@@ -34,8 +35,13 @@ function readAuthToken(req: Request): string | null {
   return m?.[1] ?? null;
 }
 
-function publicUser(u: Pick<UserRow, 'id' | 'email' | 'created_at'>) {
-  return { id: u.id, email: u.email, createdAt: u.created_at };
+function publicUser(u: Pick<UserRow, 'id' | 'email' | 'created_at'> & { email_reminders_enabled?: boolean }) {
+  return {
+    id: u.id,
+    email: u.email,
+    createdAt: u.created_at,
+    emailRemindersEnabled: u.email_reminders_enabled ?? false,
+  };
 }
 
 const emailPasswordSchema = z.object({
@@ -72,6 +78,8 @@ authRouter.post('/signup', async (req, res) => {
     if (error.code === '23505') return res.status(409).json({ error: 'Email already in use' });
     return res.status(500).json({ error: 'Failed to create account' });
   }
+
+  await ensurePersonalWorkspace(data.id);
 
   const token = signAuthToken({ sub: data.id, email });
   setAuthCookie(res, token);
@@ -151,6 +159,7 @@ authRouter.post('/google', async (req, res) => {
         }
       } else {
         user = created;
+        await ensurePersonalWorkspace(created.id);
       }
     }
 
@@ -173,11 +182,12 @@ authRouter.get('/me', async (req, res) => {
     const supabase = getSupabase();
     const { data: user } = await supabase
       .from('users')
-      .select('id, email, created_at')
+      .select('id, email, created_at, email_reminders_enabled')
       .eq('id', payload.sub)
       .maybeSingle();
 
     if (!user) return res.json({ user: null });
+    await ensurePersonalWorkspace(user.id);
     return res.json({ user: publicUser(user) });
   } catch {
     return res.json({ user: null });

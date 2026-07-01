@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Task, ReminderNotification } from '../lib/types';
+import { todayString } from '../lib/utils';
 
 interface UseRemindersOptions {
   tasks: Task[];
@@ -32,7 +33,7 @@ export function useReminders({ tasks, onNotify }: UseRemindersOptions) {
     existingTimers.clear();
 
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = todayString();
 
     tasks.forEach((task) => {
       if (task.status === 'completed' || task.date !== today) return;

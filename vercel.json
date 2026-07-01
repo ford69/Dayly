@@ -3,9 +3,24 @@
     "api/index.ts": {
       "includeFiles": "backend/src/**",
       "maxDuration": 30
+    },
+    "api/cron.ts": {
+      "includeFiles": "backend/src/**",
+      "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron?job=daily-summaries",
+      "schedule": "0 7 * * *"
+    }
+  ],
   "rewrites": [
+    { "source": "/api/cron", "destination": "/api/cron" },
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api).*)", "destination": "/index.html" }
   ]
