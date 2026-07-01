@@ -1,4 +1,4 @@
-import { Sparkles, Check, X } from 'lucide-react';
+import { Sparkles, Check, X, AlertCircle } from 'lucide-react';
 import { useTaskContext } from '../context/TaskContext';
 import { formatTime } from '../lib/utils';
 
@@ -9,16 +9,16 @@ interface PlanMyDayProps {
 
 export function PlanMyDay({ date, onClose }: PlanMyDayProps) {
   const { state, planMyDay, applyPlan } = useTaskContext();
-  const { planSuggestions, planSummary, darkMode, loading } = state;
+  const { planSuggestions, planSummary, planLoading, planReady, darkMode, error } = state;
 
-  const handlePlan = async () => {
-    await planMyDay(date);
-  };
+  const handlePlan = () => void planMyDay(date);
 
   const handleApply = async () => {
     await applyPlan();
     onClose();
   };
+
+  const pendingToday = state.tasks.filter((t) => t.date === date && t.status === 'pending').length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -33,13 +33,27 @@ export function PlanMyDay({ date, onClose }: PlanMyDayProps) {
         </div>
 
         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-          {planSuggestions.length === 0 ? (
+          {error && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              {error}
+            </div>
+          )}
+
+          {!planReady ? (
             <div className="text-center py-6">
-              <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                AI will distribute your tasks into time slots based on priority and free time.
+              <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Distribute today's pending tasks into time slots based on priority.
               </p>
-              <button onClick={handlePlan} disabled={loading} className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-                {loading ? 'Planning...' : 'Plan my day'}
+              <p className={`text-xs mb-4 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                {pendingToday} pending task{pendingToday === 1 ? '' : 's'} for today
+              </p>
+              <button
+                onClick={handlePlan}
+                disabled={planLoading}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm hover:opacity-90 disabled:opacity-50"
+              >
+                {planLoading ? 'Planning...' : 'Plan my day'}
               </button>
             </div>
           ) : (
@@ -49,29 +63,45 @@ export function PlanMyDay({ date, onClose }: PlanMyDayProps) {
                   {planSummary}
                 </p>
               )}
-              <div className="space-y-2">
-                {planSuggestions.map((s) => (
-                  <div key={s.task_id} className={`rounded-xl border p-3 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{s.title}</span>
-                      <span className={`text-xs capitalize px-2 py-0.5 rounded-lg ${s.priority === 'high' ? 'bg-red-500/20 text-red-400' : s.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{s.priority}</span>
+              {planSuggestions.length === 0 ? (
+                <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Add pending tasks for today, then try again.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {planSuggestions.map((s) => (
+                    <div key={s.task_id} className={`rounded-xl border p-3 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
+                      <div className="flex items-center justify-between">
+                        <span className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{s.title}</span>
+                        <span className={`text-xs capitalize px-2 py-0.5 rounded-lg ${s.priority === 'high' ? 'bg-red-500/20 text-red-400' : s.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{s.priority}</span>
+                      </div>
+                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {formatTime(s.suggested_start_time)} – {formatTime(s.suggested_end_time)}
+                      </p>
+                      <p className={`text-xs mt-0.5 italic ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{s.reason}</p>
                     </div>
-                    <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {formatTime(s.suggested_start_time)} – {formatTime(s.suggested_end_time)}
-                    </p>
-                    <p className={`text-xs mt-0.5 italic ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{s.reason}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
 
-        {planSuggestions.length > 0 && (
+        {planReady && planSuggestions.length > 0 && (
           <div className={`flex gap-3 px-6 py-5 border-t ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-            <button onClick={handlePlan} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border ${darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'}`}>Re-plan</button>
-            <button onClick={handleApply} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 flex items-center justify-center gap-2">
+            <button onClick={handlePlan} disabled={planLoading} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border ${darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'}`}>
+              {planLoading ? 'Planning...' : 'Re-plan'}
+            </button>
+            <button onClick={handleApply} disabled={planLoading} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 flex items-center justify-center gap-2 disabled:opacity-50">
               <Check className="w-4 h-4" />Apply schedule
+            </button>
+          </div>
+        )}
+
+        {planReady && planSuggestions.length === 0 && (
+          <div className={`px-6 py-5 border-t ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+            <button onClick={onClose} className="w-full py-2.5 rounded-xl text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600">
+              Done
             </button>
           </div>
         )}

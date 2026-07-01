@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { apiFetch } from '../lib/api';
 import { Task, TaskFormData, ReminderNotification, PlanSuggestion } from '../lib/types';
+import { todayString } from '../lib/utils';
 
 interface TaskState {
   tasks: Task[];
@@ -11,6 +12,8 @@ interface TaskState {
   smartReminder: string | null;
   planSuggestions: PlanSuggestion[];
   planSummary: string | null;
+  planLoading: boolean;
+  planReady: boolean;
 }
 
 type TaskAction =
@@ -24,7 +27,9 @@ type TaskAction =
   | { type: 'REMOVE_NOTIFICATION'; payload: string }
   | { type: 'TOGGLE_DARK_MODE' }
   | { type: 'SET_SMART_REMINDER'; payload: string | null }
-  | { type: 'SET_PLAN'; payload: { suggestions: PlanSuggestion[]; summary: string } };
+  | { type: 'SET_PLAN'; payload: { suggestions: PlanSuggestion[]; summary: string } }
+  | { type: 'SET_PLAN_LOADING'; payload: boolean }
+  | { type: 'CLEAR_PLAN' };
 
 function taskReducer(state: TaskState, action: TaskAction): TaskState {
   switch (action.type) {
@@ -59,7 +64,14 @@ function taskReducer(state: TaskState, action: TaskAction): TaskState {
         ...state,
         planSuggestions: action.payload.suggestions,
         planSummary: action.payload.summary,
+        planReady: true,
+        planLoading: false,
+        error: null,
       };
+    case 'SET_PLAN_LOADING':
+      return { ...state, planLoading: action.payload, error: action.payload ? null : state.error };
+    case 'CLEAR_PLAN':
+      return { ...state, planSuggestions: [], planSummary: null, planReady: false, planLoading: false, error: null };
     default:
       return state;
   }
@@ -75,6 +87,7 @@ interface TaskContextValue {
   rescheduleTask: (id: string) => Promise<Task | null>;
   planMyDay: (date?: string) => Promise<void>;
   applyPlan: () => Promise<void>;
+  clearPlan: () => void;
   fetchSmartReminder: (date?: string) => Promise<void>;
   logFocusSession: (taskId: string | null, durationSeconds: number) => Promise<void>;
   addNotification: (notification: ReminderNotification) => void;
@@ -94,6 +107,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     smartReminder: null,
     planSuggestions: [],
     planSummary: null,
+    planLoading: false,
+    planReady: false,
   });
 
   const fetchTasks = useCallback(async (opts?: { date?: string; from?: string; to?: string }) => {
@@ -168,28 +183,46 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const planMyDay = useCallback(async (date?: string) => {
+    dispatch({ type: 'SET_PLAN_LOADING', payload: true });
     try {
       const result = await apiFetch<{ suggestions: PlanSuggestion[]; summary: string }>('/api/plan/day', {
         method: 'POST',
-        json: { date },
+        json: { date: date ?? todayString() },
       });
       dispatch({ type: 'SET_PLAN', payload: result });
-    } catch {
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to plan day' });
+    } catch (err) {
+      dispatch({ type: 'SET_PLAN_LOADING', payload: false });
+      const message = err instanceof Error ? err.message : 'Failed to plan day';
+      dispatch({ type: 'SET_ERROR', payload: message });
     }
   }, []);
 
+  const clearPlan = useCallback(() => {
+    dispatch({ type: 'CLEAR_PLAN' });
+  }, []);
+
   const applyPlan = useCallback(async () => {
-    if (state.planSuggestions.length === 0) return;
+    const suggestions = state.planSuggestions;
+    if (suggestions.length === 0) return;
+    dispatch({ type: 'SET_PLAN_LOADING', payload: true });
     try {
       await apiFetch('/api/plan/apply', {
         method: 'POST',
-        json: { suggestions: state.planSuggestions },
+        json: {
+          suggestions: suggestions.map((s) => ({
+            task_id: s.task_id,
+            suggested_date: s.suggested_date,
+            suggested_start_time: s.suggested_start_time,
+            suggested_end_time: s.suggested_end_time,
+          })),
+        },
       });
       await fetchTasks();
-      dispatch({ type: 'SET_PLAN', payload: { suggestions: [], summary: '' } });
-    } catch {
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to apply plan' });
+      dispatch({ type: 'CLEAR_PLAN' });
+    } catch (err) {
+      dispatch({ type: 'SET_PLAN_LOADING', payload: false });
+      const message = err instanceof Error ? err.message : 'Failed to apply plan';
+      dispatch({ type: 'SET_ERROR', payload: message });
     }
   }, [state.planSuggestions, fetchTasks]);
 
@@ -246,6 +279,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         rescheduleTask,
         planMyDay,
         applyPlan,
+        clearPlan,
         fetchSmartReminder,
         logFocusSession,
         addNotification,

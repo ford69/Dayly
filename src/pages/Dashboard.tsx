@@ -37,7 +37,7 @@ function StatCard({ label, value, icon: Icon, color, darkMode }: {
 }
 
 export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }: DashboardProps) {
-  const { state, fetchTasks } = useTaskContext();
+  const { state, fetchTasks, clearPlan } = useTaskContext();
   const { tasks, loading, darkMode, smartReminder } = state;
   const [showPlan, setShowPlan] = useState(false);
   const [search, setSearch] = useState('');
@@ -130,7 +130,7 @@ export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }:
             <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{formatDate(today)}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowPlan(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-semibold hover:opacity-90">
+            <button onClick={() => { clearPlan(); setShowPlan(true); }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-semibold hover:opacity-90">
               <Sparkles className="w-4 h-4" />Plan my day
             </button>
             <button onClick={onFocus} className="px-4 py-2 rounded-xl border text-sm font-semibold border-blue-500 text-blue-500 hover:bg-blue-500/10">

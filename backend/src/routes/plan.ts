@@ -12,7 +12,9 @@ planRouter.post('/day', async (req, res) => {
   if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
 
   const date =
-    typeof req.body?.date === 'string' ? req.body.date : new Date().toISOString().split('T')[0];
+    typeof req.body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.date)
+      ? req.body.date
+      : new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local/server TZ
 
   const supabase = getSupabase();
   const { data: tasks, error } = await supabase
