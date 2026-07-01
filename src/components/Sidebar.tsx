@@ -8,6 +8,8 @@ import { todayString } from '../lib/utils';
 interface SidebarProps {
   currentView: ViewMode;
   onViewChange: (view: ViewMode) => void;
+  /** When true, renders inline for use inside a mobile drawer (no fixed positioning). */
+  isDrawer?: boolean;
 }
 
 const navItems: { id: ViewMode; label: string; icon: typeof LayoutDashboard }[] = [
@@ -20,7 +22,7 @@ const navItems: { id: ViewMode; label: string; icon: typeof LayoutDashboard }[] 
   { id: 'all', label: 'All Tasks', icon: ListTodo },
 ];
 
-export function Sidebar({ currentView, onViewChange }: SidebarProps) {
+export function Sidebar({ currentView, onViewChange, isDrawer = false }: SidebarProps) {
   const { state } = useTaskContext();
   const { tasks, darkMode } = state;
   const today = todayString();
@@ -31,7 +33,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const progress = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
 
   return (
-    <aside className={`fixed left-0 top-16 bottom-0 w-64 border-r flex flex-col transition-colors duration-300 overflow-y-auto ${darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-100 text-gray-900'}`}>
+    <aside
+      className={`${isDrawer ? 'h-full' : 'fixed left-0 top-16 bottom-0'} w-64 border-r flex flex-col transition-colors duration-300 overflow-y-auto ${
+        darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-100 text-gray-900'
+      }`}
+    >
       <div className="p-4 space-y-1 mt-2">
         {navItems.map(({ id, label, icon: Icon }) => (
           <button

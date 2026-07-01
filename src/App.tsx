@@ -22,6 +22,12 @@ function AppContent() {
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [view, setView] = useState<ViewMode>('dashboard');
   const [selectedDate, setSelectedDate] = useState(todayString());
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const handleViewChange = useCallback((next: ViewMode) => {
+    setView(next);
+    setMobileNavOpen(false);
+  }, []);
 
   const handleNotify = useCallback(
     (notification: ReminderNotification) => addNotification(notification),
@@ -38,58 +44,56 @@ function AppContent() {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
 
-  const mobileNavItems: { id: ViewMode; label: string }[] = [
-    { id: 'dashboard', label: 'Home' },
-    { id: 'week', label: 'Week' },
-    { id: 'habits', label: 'Habits' },
-    { id: 'all', label: 'All' },
-  ];
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileNavOpen]);
+
+  const dashboard = (
+    <Dashboard
+      onEdit={handleEdit}
+      view={view}
+      selectedDate={selectedDate}
+      onDateChange={setSelectedDate}
+      onFocus={() => setShowFocus(true)}
+    />
+  );
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
-      <Navbar onAddTask={handleOpenAdd} notificationCount={notifications.length} />
+      <Navbar
+        onAddTask={handleOpenAdd}
+        notificationCount={notifications.length}
+        onMenuClick={() => setMobileNavOpen(true)}
+      />
 
       <div className="hidden md:flex">
-        <Sidebar currentView={view} onViewChange={setView} />
+        <Sidebar currentView={view} onViewChange={handleViewChange} />
         <main className="ml-64 mt-16 flex-1 p-6 min-h-[calc(100vh-4rem)]">
-          <div className="max-w-4xl mx-auto">
-            <Dashboard
-              onEdit={handleEdit}
-              view={view}
-              selectedDate={selectedDate}
-              onDateChange={setSelectedDate}
-              onFocus={() => setShowFocus(true)}
-            />
-          </div>
+          <div className="max-w-4xl mx-auto">{dashboard}</div>
         </main>
       </div>
 
       <div className="md:hidden mt-16">
-        <div className={`flex border-b sticky top-16 z-30 overflow-x-auto ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
-          {mobileNavItems.map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setView(id)}
-              className={`flex-1 min-w-[70px] py-3 text-sm font-semibold transition-colors ${
-                view === id
-                  ? darkMode ? 'text-blue-400 border-b-2 border-blue-400' : 'text-blue-600 border-b-2 border-blue-500'
-                  : darkMode ? 'text-gray-500' : 'text-gray-400'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <main className="p-4">
-          <Dashboard
-            onEdit={handleEdit}
-            view={view}
-            selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-            onFocus={() => setShowFocus(true)}
-          />
-        </main>
+        <main className="p-4">{dashboard}</main>
       </div>
+
+      {mobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setMobileNavOpen(false)}
+            aria-hidden
+          />
+          <div className="absolute left-0 top-16 bottom-0 w-64 max-w-[85vw] shadow-2xl">
+            <Sidebar currentView={view} onViewChange={handleViewChange} isDrawer />
+          </div>
+        </div>
+      )}
 
       {showForm && <TaskForm onClose={handleClose} editTask={editTask} />}
       {showFocus && <FocusMode onClose={() => setShowFocus(false)} />}

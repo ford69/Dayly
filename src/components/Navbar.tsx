@@ -1,4 +1,4 @@
-import { Moon, Sun, Bell, Plus, LogOut } from 'lucide-react';
+import { Moon, Sun, Bell, Plus, LogOut, Menu } from 'lucide-react';
 import { useTaskContext } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, todayString } from '../lib/utils';
@@ -6,9 +6,10 @@ import { formatDate, todayString } from '../lib/utils';
 interface NavbarProps {
   onAddTask: () => void;
   notificationCount: number;
+  onMenuClick?: () => void;
 }
 
-export function Navbar({ onAddTask, notificationCount }: NavbarProps) {
+export function Navbar({ onAddTask, notificationCount, onMenuClick }: NavbarProps) {
   const { state, toggleDarkMode } = useTaskContext();
   const { darkMode } = state;
   const { logout } = useAuth();
@@ -21,7 +22,18 @@ export function Navbar({ onAddTask, notificationCount }: NavbarProps) {
           : 'bg-white/90 border-gray-100 text-gray-900'
       }`}
     >
-      <div className="flex items-center mr-auto">
+      <div className="flex items-center mr-auto gap-2">
+        {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className={`md:hidden w-9 h-9 rounded-xl flex items-center justify-center transition-colors duration-200 ${
+              darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
+            }`}
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
         <img
           src="/dayly.png"
           alt="Dayly"
