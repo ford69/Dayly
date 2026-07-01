@@ -1,6 +1,6 @@
-import { Clock, Pencil, Trash2, CheckCircle2, Circle, AlertTriangle, Zap } from 'lucide-react';
+import { Clock, Pencil, Trash2, CheckCircle2, Circle, AlertTriangle, Zap, Repeat, Lock, CalendarClock } from 'lucide-react';
 import { Task } from '../lib/types';
-import { formatTime, priorityBadge, priorityBadgeDark, isTaskActive } from '../lib/utils';
+import { formatTime, priorityBadge, priorityBadgeDark, isTaskActive, RECURRENCE_LABELS } from '../lib/utils';
 import { useTaskContext } from '../context/TaskContext';
 
 interface TaskCardProps {
@@ -11,7 +11,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onEdit, hasOverlap = false, compact = false }: TaskCardProps) {
-  const { state, deleteTask, toggleStatus } = useTaskContext();
+  const { state, deleteTask, toggleStatus, rescheduleTask } = useTaskContext();
   const { darkMode } = state;
   const active = isTaskActive(task);
   const completed = task.status === 'completed';
@@ -23,7 +23,13 @@ export function TaskCard({ task, onEdit, hasOverlap = false, compact = false }: 
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (task.blocked) return;
     toggleStatus(task);
+  };
+
+  const handleReschedule = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await rescheduleTask(task.id);
   };
 
   return (
@@ -52,6 +58,13 @@ export function TaskCard({ task, onEdit, hasOverlap = false, compact = false }: 
         <span className="absolute -top-2 left-3 flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-amber-500 text-white rounded-full">
           <AlertTriangle className="w-2.5 h-2.5" />
           Overlap
+        </span>
+      )}
+
+      {task.blocked && !completed && (
+        <span className="absolute -top-2 left-3 flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-gray-500 text-white rounded-full">
+          <Lock className="w-2.5 h-2.5" />
+          Blocked
         </span>
       )}
 
@@ -85,6 +98,12 @@ export function TaskCard({ task, onEdit, hasOverlap = false, compact = false }: 
             <span className={`text-xs px-2 py-0.5 rounded-lg font-medium capitalize ${darkMode ? priorityBadgeDark(task.priority) : priorityBadge(task.priority)}`}>
               {task.priority}
             </span>
+            {task.recurrence_rule !== 'none' && (
+              <span className={`text-xs px-2 py-0.5 rounded-lg font-medium flex items-center gap-1 ${darkMode ? 'bg-purple-900/40 text-purple-400' : 'bg-purple-50 text-purple-600'}`}>
+                <Repeat className="w-3 h-3" />
+                {RECURRENCE_LABELS[task.recurrence_rule]?.replace('Every ', '') ?? task.recurrence_rule}
+              </span>
+            )}
           </div>
 
           {task.description && !compact && (
@@ -100,6 +119,17 @@ export function TaskCard({ task, onEdit, hasOverlap = false, compact = false }: 
         </div>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
+          {task.status === 'pending' && task.date < new Date().toISOString().split('T')[0] && (
+            <button
+              onClick={handleReschedule}
+              title="Smart reschedule"
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors duration-200 ${
+                darkMode ? 'hover:bg-gray-700 text-gray-400 hover:text-teal-400' : 'hover:bg-teal-50 text-gray-400 hover:text-teal-500'
+              }`}
+            >
+              <CalendarClock className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(task); }}
             className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors duration-200 ${

@@ -4,6 +4,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './routes/auth';
 import { tasksRouter } from './routes/tasks';
+import { habitsRouter } from './routes/habits';
+import { planRouter } from './routes/plan';
 import { alertsRouter } from './routes/alerts';
 
 export function createApp() {
@@ -21,6 +23,8 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', authRouter);
   app.use('/api/tasks', tasksRouter);
+  app.use('/api/habits', habitsRouter);
+  app.use('/api/plan', planRouter);
   app.use('/api/alerts', alertsRouter);
 
   // error handler

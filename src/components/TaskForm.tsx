@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Flag, AlignLeft, Type, AlertCircle } from 'lucide-react';
-import { Task, TaskFormData, Priority, Status } from '../lib/types';
+import { X, Calendar, Clock, Flag, AlignLeft, Type, AlertCircle, Repeat, Link2 } from 'lucide-react';
+import { Task, TaskFormData, Priority, Status, RecurrenceRule } from '../lib/types';
 import { useTaskContext } from '../context/TaskContext';
-import { todayString, timeToMinutes } from '../lib/utils';
+import { todayString, timeToMinutes, RECURRENCE_LABELS } from '../lib/utils';
 
 interface TaskFormProps {
   onClose: () => void;
@@ -17,22 +17,36 @@ const defaultForm: TaskFormData = {
   end_time: '10:00',
   priority: 'medium',
   status: 'pending',
+  recurrence_rule: 'none',
+  recurrence_end: null,
+  depends_on: [],
 };
+
+const recurrenceOptions: RecurrenceRule[] = ['none', 'daily', 'weekdays', 'weekly', 'monthly'];
 
 export function TaskForm({ onClose, editTask }: TaskFormProps) {
   const { state, createTask, updateTask } = useTaskContext();
-  const { darkMode } = state;
-  const [form, setForm] = useState<TaskFormData>(editTask ? {
-    title: editTask.title,
-    description: editTask.description,
-    date: editTask.date,
-    start_time: editTask.start_time,
-    end_time: editTask.end_time,
-    priority: editTask.priority,
-    status: editTask.status,
-  } : defaultForm);
+  const { darkMode, tasks } = state;
+  const [form, setForm] = useState<TaskFormData>(
+    editTask
+      ? {
+          title: editTask.title,
+          description: editTask.description,
+          date: editTask.date,
+          start_time: editTask.start_time,
+          end_time: editTask.end_time,
+          priority: editTask.priority,
+          status: editTask.status,
+          recurrence_rule: editTask.recurrence_rule,
+          recurrence_end: editTask.recurrence_end,
+          depends_on: editTask.depends_on,
+        }
+      : defaultForm
+  );
   const [submitting, setSubmitting] = useState(false);
   const [timeError, setTimeError] = useState('');
+
+  const otherTasks = tasks.filter((t) => t.id !== editTask?.id && t.status === 'pending');
 
   useEffect(() => {
     if (timeToMinutes(form.end_time) <= timeToMinutes(form.start_time)) {
@@ -58,10 +72,18 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
     }
   };
 
+  const toggleDependency = (taskId: string) => {
+    const deps = form.depends_on ?? [];
+    setForm({
+      ...form,
+      depends_on: deps.includes(taskId) ? deps.filter((id) => id !== taskId) : [...deps, taskId],
+    });
+  };
+
   const inputClass = `w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all duration-200 ${
     darkMode
-      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-500 focus:bg-gray-800'
-      : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:bg-white focus:shadow-sm'
+      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-blue-500'
+      : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:bg-white'
   }`;
 
   const labelClass = `flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-1.5 ${
@@ -73,164 +95,101 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div
-        className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden transition-colors duration-300 ${
+        className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden ${
           darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-100'
         }`}
-        style={{ animation: 'modalEnter 0.25s cubic-bezier(0.34,1.56,0.64,1)' }}
       >
         <div className={`flex items-center justify-between px-6 py-5 border-b ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-          <div>
-            <h2 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              {editTask ? 'Edit Task' : 'Create New Task'}
-            </h2>
-            <p className={`text-xs mt-0.5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-              {editTask ? 'Update task details below' : 'Fill in the details to add a new task'}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors duration-200 ${
-              darkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-400'
-            }`}
-          >
+          <h2 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            {editTask ? 'Edit Task' : 'Create New Task'}
+          </h2>
+          <button onClick={onClose} className={`w-9 h-9 rounded-xl flex items-center justify-center ${darkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-400'}`}>
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
-            <label className={labelClass}>
-              <Type className="w-3.5 h-3.5" />
-              Title
-            </label>
-            <input
-              type="text"
-              placeholder="What needs to be done?"
-              className={inputClass}
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              required
-              autoFocus
-            />
+            <label className={labelClass}><Type className="w-3.5 h-3.5" />Title</label>
+            <input type="text" placeholder="What needs to be done?" className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required autoFocus />
           </div>
 
           <div>
-            <label className={labelClass}>
-              <AlignLeft className="w-3.5 h-3.5" />
-              Description
-            </label>
-            <textarea
-              rows={2}
-              placeholder="Add more details (optional)"
-              className={`${inputClass} resize-none`}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
+            <label className={labelClass}><AlignLeft className="w-3.5 h-3.5" />Description</label>
+            <textarea rows={2} placeholder="Add more details (optional)" className={`${inputClass} resize-none`} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
 
           <div>
-            <label className={labelClass}>
-              <Calendar className="w-3.5 h-3.5" />
-              Date
-            </label>
-            <input
-              type="date"
-              className={inputClass}
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
-              required
-            />
+            <label className={labelClass}><Calendar className="w-3.5 h-3.5" />Date</label>
+            <input type="date" className={inputClass} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>
-                <Clock className="w-3.5 h-3.5" />
-                Start Time
-              </label>
-              <input
-                type="time"
-                className={inputClass}
-                value={form.start_time}
-                onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-                required
-              />
+              <label className={labelClass}><Clock className="w-3.5 h-3.5" />Start</label>
+              <input type="time" className={inputClass} value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} required />
             </div>
             <div>
-              <label className={labelClass}>
-                <Clock className="w-3.5 h-3.5" />
-                End Time
-              </label>
-              <input
-                type="time"
-                className={inputClass}
-                value={form.end_time}
-                onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-                required
-              />
+              <label className={labelClass}><Clock className="w-3.5 h-3.5" />End</label>
+              <input type="time" className={inputClass} value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} required />
             </div>
           </div>
 
           {timeError && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {timeError}
+              <AlertCircle className="w-4 h-4 shrink-0" />{timeError}
             </div>
           )}
 
           <div>
-            <label className={labelClass}>
-              <Flag className="w-3.5 h-3.5" />
-              Priority
-            </label>
+            <label className={labelClass}><Repeat className="w-3.5 h-3.5" />Repeat</label>
+            <select className={inputClass} value={form.recurrence_rule} onChange={(e) => setForm({ ...form, recurrence_rule: e.target.value as RecurrenceRule })} disabled={!!editTask?.recurrence_parent_id}>
+              {recurrenceOptions.map((r) => (
+                <option key={r} value={r}>{RECURRENCE_LABELS[r]}</option>
+              ))}
+            </select>
+          </div>
+
+          {form.recurrence_rule !== 'none' && !editTask?.recurrence_parent_id && (
+            <div>
+              <label className={labelClass}>Repeat until (optional)</label>
+              <input type="date" className={inputClass} value={form.recurrence_end ?? ''} onChange={(e) => setForm({ ...form, recurrence_end: e.target.value || null })} />
+            </div>
+          )}
+
+          <div>
+            <label className={labelClass}><Flag className="w-3.5 h-3.5" />Priority</label>
             <div className="grid grid-cols-3 gap-2">
               {priorities.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setForm({ ...form, priority: p })}
-                  className={`py-2 rounded-xl text-sm font-semibold capitalize border transition-all duration-200 ${
-                    form.priority === p
-                      ? p === 'high'
-                        ? 'bg-red-500 border-red-500 text-white shadow-md shadow-red-500/30'
-                        : p === 'medium'
-                        ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/30'
-                        : 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                      : darkMode
-                      ? 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
-                      : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}
-                >
+                <button key={p} type="button" onClick={() => setForm({ ...form, priority: p })} className={`py-2 rounded-xl text-sm font-semibold capitalize border transition-all ${form.priority === p ? (p === 'high' ? 'bg-red-500 border-red-500 text-white' : p === 'medium' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-emerald-500 border-emerald-500 text-white') : darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
                   {p}
                 </button>
               ))}
             </div>
           </div>
 
+          {otherTasks.length > 0 && (
+            <div>
+              <label className={labelClass}><Link2 className="w-3.5 h-3.5" />Depends on</label>
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                {otherTasks.slice(0, 10).map((t) => (
+                  <label key={t.id} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg cursor-pointer ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}>
+                    <input type="checkbox" checked={(form.depends_on ?? []).includes(t.id)} onChange={() => toggleDependency(t.id)} className="rounded" />
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>{t.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {editTask && (
             <div>
               <label className={labelClass}>Status</label>
               <div className="grid grid-cols-2 gap-2">
                 {statuses.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setForm({ ...form, status: s })}
-                    className={`py-2 rounded-xl text-sm font-semibold capitalize border transition-all duration-200 ${
-                      form.status === s
-                        ? s === 'completed'
-                          ? 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                          : 'bg-blue-500 border-blue-500 text-white shadow-md shadow-blue-500/30'
-                        : darkMode
-                        ? 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
-                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
-                    }`}
-                  >
+                  <button key={s} type="button" onClick={() => setForm({ ...form, status: s })} className={`py-2 rounded-xl text-sm font-semibold capitalize border ${form.status === s ? (s === 'completed' ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-blue-500 border-blue-500 text-white') : darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
                     {s}
                   </button>
                 ))}
@@ -239,23 +198,9 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
           )}
         </form>
 
-        <div className={`flex items-center gap-3 px-6 py-5 border-t ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-          <button
-            type="button"
-            onClick={onClose}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ${
-              darkMode
-                ? 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200'
-                : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || !form.title.trim() || !!timeError}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white transition-all duration-200 shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
-          >
+        <div className={`flex gap-3 px-6 py-5 border-t ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+          <button type="button" onClick={onClose} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border ${darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'}`}>Cancel</button>
+          <button onClick={handleSubmit} disabled={submitting || !form.title.trim() || !!timeError} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50">
             {submitting ? 'Saving...' : editTask ? 'Save Changes' : 'Create Task'}
           </button>
         </div>

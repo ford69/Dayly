@@ -13,6 +13,7 @@ export type UserRow = {
 
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type TaskStatus = 'pending' | 'completed';
+export type RecurrenceRule = 'none' | 'daily' | 'weekly' | 'weekdays' | 'monthly';
 
 export type TaskRow = {
   id: string;
@@ -24,6 +25,37 @@ export type TaskRow = {
   end_time: string;
   priority: TaskPriority;
   status: TaskStatus;
+  recurrence_rule: RecurrenceRule;
+  recurrence_parent_id: string | null;
+  recurrence_end: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type HabitRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  color: string;
+  target_days: number[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type HabitLogRow = {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  date: string;
+  completed: boolean;
+  created_at: string;
+};
+
+export type TaskDependencyRow = {
+  id: string;
+  user_id: string;
+  task_id: string;
+  depends_on_task_id: string;
+  created_at: string;
 };
