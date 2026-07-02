@@ -10,6 +10,7 @@ import { isUuid, type TaskPriority, type TaskRow, type TaskStatus } from '../mod
 import { requireAuth } from '../middleware/requireAuth';
 import { scheduleTaskReminders, cancelTaskNotifications } from '../jobs/scheduleReminders';
 import { upsertDailyStats } from '../services/todaySummary';
+import { applyHabitLinksOnTaskComplete } from '../habitTaskLinks';
 
 async function afterTaskChange(userId: string, task: TaskRow) {
   try {
@@ -17,6 +18,9 @@ async function afterTaskChange(userId: string, task: TaskRow) {
     const { data: user } = await supabase.from('users').select('email').eq('id', userId).maybeSingle();
     if (user?.email) await scheduleTaskReminders(userId, task, user.email);
     await upsertDailyStats(userId, task.date);
+    if (task.status === 'completed') {
+      await applyHabitLinksOnTaskComplete(userId, task.id, task.date);
+    }
   } catch {
     // Non-blocking: reminders/stats should not fail task operations
   }

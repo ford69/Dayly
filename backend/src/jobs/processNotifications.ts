@@ -1,7 +1,7 @@
 import { getSupabase } from '../db';
 import { sendEmail } from '../email/brevo';
 import { buildDigestEmail, buildReminderEmail, reminderSubject } from '../email/templates';
-import { isHabitScheduledOnDate } from '../habits';
+import { isHabitScheduledOnDate, isGoalMet } from '../habitsCore';
 import type { HabitRow } from '../models';
 import { addDays, todayString } from '../recurrence';
 import { getLocalDateString, getLocalHour } from '../timezone';
@@ -186,17 +186,14 @@ async function queueMissedDigest(
     .eq('user_id', user.id)
     .gte('date', addDays(localDate, -MISSED_LOOKBACK_DAYS));
 
-  const completedSet = new Set(
-    (logs ?? []).filter((l) => l.completed).map((l) => `${l.habit_id}:${l.date}`)
-  );
-
   const missedHabits: string[] = [];
   for (let i = 1; i <= MISSED_LOOKBACK_DAYS; i++) {
     const checkDate = addDays(localDate, -i);
     for (const h of (habits ?? []) as HabitRow[]) {
       if (!isHabitScheduledOnDate(h, checkDate)) continue;
-      if (!completedSet.has(`${h.id}:${checkDate}`)) {
-        missedHabits.push(`${checkDate} — ${h.title} (${h.start_time})`);
+      const log = (logs ?? []).find((l) => l.habit_id === h.id && l.date === checkDate);
+      if (!log || !isGoalMet(h, Number(log.value))) {
+        missedHabits.push(`${checkDate} — ${h.title}`);
       }
     }
   }

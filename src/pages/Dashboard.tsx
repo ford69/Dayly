@@ -11,6 +11,7 @@ import { AgendaView } from '../components/AgendaView';
 import { HabitsPanel } from '../components/HabitsPanel';
 import { PlanMyDay } from '../components/PlanMyDay';
 import { TodaySummary } from '../components/TodaySummary';
+import { HabitCheckIn } from '../components/HabitCheckIn';
 import { Task, ViewMode, Priority, Status } from '../lib/types';
 import { todayString, formatDate, isTaskActive, getCurrentTimeMinutes, timeToMinutes, weekDates, startOfWeek } from '../lib/utils';
 
@@ -144,6 +145,8 @@ export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }:
             </button>
           </div>
         </div>
+
+        <HabitCheckIn />
 
         {smartReminder && (
           <div className={`rounded-2xl border p-4 flex items-start gap-3 ${darkMode ? 'bg-amber-900/20 border-amber-700/50' : 'bg-amber-50 border-amber-200'}`}>

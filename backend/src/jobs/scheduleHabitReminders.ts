@@ -1,5 +1,5 @@
 import { getSupabase } from '../db';
-import { isHabitScheduledOnDate } from '../habits';
+import { isHabitScheduledOnDate } from '../habitsCore';
 import type { HabitRow } from '../models';
 import { addDays, todayString } from '../recurrence';
 

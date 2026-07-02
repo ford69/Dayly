@@ -32,15 +32,47 @@ export type TaskRow = {
   updated_at: string;
 };
 
+export type HabitGoalType = 'checkbox' | 'numeric' | 'timer' | 'distance' | 'count';
+export type HabitFrequency =
+  | 'daily'
+  | 'weekdays'
+  | 'weekends'
+  | 'weekly'
+  | 'every_n_days'
+  | 'every_n_weeks'
+  | 'monthly'
+  | 'custom';
+export type HabitCategory =
+  | 'fitness'
+  | 'learning'
+  | 'work'
+  | 'wellness'
+  | 'finance'
+  | 'relationships'
+  | 'other';
+export type HabitStatus = 'active' | 'paused' | 'archived';
+
 export type HabitRow = {
   id: string;
   user_id: string;
   title: string;
   description: string;
+  icon: string;
   color: string;
-  target_days: number[];
+  category: HabitCategory;
+  frequency: HabitFrequency;
+  frequency_config: Record<string, unknown>;
+  goal_type: HabitGoalType;
+  target: number;
+  unit: string;
+  start_date: string;
+  end_date: string | null;
+  status: HabitStatus;
+  reminder_time: string | null;
+  rest_days: number[];
   start_time: string;
   end_time: string;
+  target_days: number[];
   created_at: string;
   updated_at: string;
 };
@@ -50,7 +82,10 @@ export type HabitLogRow = {
   habit_id: string;
   user_id: string;
   date: string;
+  value: number;
   completed: boolean;
+  completed_at: string | null;
+  note: string;
   created_at: string;
 };
 

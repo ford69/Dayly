@@ -7,7 +7,19 @@ async function migrate() {
 
   const supabase = getSupabase();
 
-  for (const table of ['users', 'tasks', 'habits', 'habit_logs', 'task_dependencies', 'focus_sessions', 'workspaces', 'notification_queue', 'daily_stats'] as const) {
+  for (const table of [
+    'users',
+    'tasks',
+    'habits',
+    'habit_logs',
+    'habit_task_links',
+    'habit_streak_freezes',
+    'task_dependencies',
+    'focus_sessions',
+    'workspaces',
+    'notification_queue',
+    'daily_stats',
+  ] as const) {
     const { error } = await supabase.from(table).select('*').limit(0);
     if (error) {
       throw new Error(
