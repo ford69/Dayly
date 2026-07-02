@@ -1,5 +1,4 @@
 // app.ts
-import './types/express.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
