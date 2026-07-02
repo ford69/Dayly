@@ -1,17 +1,17 @@
 // @ts-nocheck
-export default async function handler(req, res) {
+import { createApp } from '../backend/src/app.js';
+
+let app;
+
+export default function handler(req, res) {
   try {
-    const { createApp } = await import('../backend/src/app');
-    const app = createApp();
-    await new Promise((resolve, reject) => {
-      app(req, res, (err) => (err ? reject(err) : resolve()));
-    });
+    if (!app) app = createApp();
+    app(req, res);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
-    console.error('API bootstrap failed:', message, stack);
+    console.error('API handler failed:', message);
     if (!res.headersSent) {
-      res.status(500).json({ error: message, stack });
+      res.status(500).json({ error: message });
     }
   }
 }
