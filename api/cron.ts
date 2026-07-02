@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { processNotificationQueue, runHourlyDigests } from '../backend/src/jobs/processNotifications';
+import { processNotificationQueue, runHourlyDigests } from './_cronJobs.mjs';
 
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;

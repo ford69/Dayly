@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createApp } from '../backend/src/app.js';
+import { createApp } from './_backend.mjs';
 
 let app;
 
