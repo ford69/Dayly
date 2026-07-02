@@ -1,6 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { processNotificationQueue, sendDailySummaries } from '../jobs/processNotifications';
-import { env } from '../env';
+import { processNotificationQueue, runHourlyDigests } from '../jobs/processNotifications';
 
 function verifyCronSecret(req: Request, res: Response): boolean {
   const secret = process.env.CRON_SECRET;
@@ -18,8 +17,7 @@ function verifyCronSecret(req: Request, res: Response): boolean {
 
 export const cronRouter = Router();
 
-/** Process due email/push notifications — call every 5 min via Vercel Cron */
-cronRouter.post('/process-notifications', async (req, res) => {
+async function handleProcess(req: Request, res: Response) {
   if (!verifyCronSecret(req, res)) return;
   try {
     const result = await processNotificationQueue();
@@ -28,32 +26,21 @@ cronRouter.post('/process-notifications', async (req, res) => {
     const message = err instanceof Error ? err.message : 'Cron failed';
     return res.status(500).json({ error: message });
   }
-});
+}
 
-/** Queue morning daily summaries — call once daily via Vercel Cron */
-cronRouter.post('/daily-summaries', async (req, res) => {
+async function handleHourlyDigests(req: Request, res: Response) {
   if (!verifyCronSecret(req, res)) return;
   try {
-    const queued = await sendDailySummaries();
+    const digests = await runHourlyDigests();
     const processed = await processNotificationQueue();
-    return res.json({ ok: true, ...queued, ...processed });
+    return res.json({ ok: true, ...digests, ...processed });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Cron failed';
     return res.status(500).json({ error: message });
   }
-});
+}
 
-// Allow GET for Vercel Cron (sends GET by default in some configs)
-cronRouter.get('/process-notifications', async (req, res) => {
-  if (!verifyCronSecret(req, res)) return;
-  if (env.NODE_ENV === 'production' && !process.env.CRON_SECRET) {
-    return res.status(503).json({ error: 'Not configured' });
-  }
-  try {
-    const result = await processNotificationQueue();
-    return res.json({ ok: true, ...result });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Cron failed';
-    return res.status(500).json({ error: message });
-  }
-});
+cronRouter.post('/process-notifications', handleProcess);
+cronRouter.get('/process-notifications', handleProcess);
+cronRouter.post('/hourly-digests', handleHourlyDigests);
+cronRouter.get('/hourly-digests', handleHourlyDigests);

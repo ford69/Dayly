@@ -6,6 +6,7 @@ export type AuthUser = {
   email: string;
   createdAt: string;
   emailRemindersEnabled?: boolean;
+  timezone?: string;
 };
 
 type AuthContextValue = {

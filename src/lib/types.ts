@@ -27,19 +27,28 @@ export type TaskFormData = Omit<
   depends_on?: string[];
 };
 
+export type HabitTimeStatus = 'off_day' | 'upcoming' | 'active' | 'completed' | 'missed';
+
 export interface Habit {
   id: string;
   title: string;
   description: string;
   color: string;
   target_days: number[];
+  start_time: string;
+  end_time: string;
   completed_today: boolean;
   streak: number;
+  scheduled_today: boolean;
+  time_status: HabitTimeStatus;
   created_at: string;
   updated_at: string;
 }
 
-export type HabitFormData = Pick<Habit, 'title' | 'description' | 'color' | 'target_days'>;
+export type HabitFormData = Pick<
+  Habit,
+  'title' | 'description' | 'color' | 'target_days' | 'start_time' | 'end_time'
+>;
 
 export interface PlanSuggestion {
   task_id: string;

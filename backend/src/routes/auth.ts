@@ -35,12 +35,18 @@ function readAuthToken(req: Request): string | null {
   return m?.[1] ?? null;
 }
 
-function publicUser(u: Pick<UserRow, 'id' | 'email' | 'created_at'> & { email_reminders_enabled?: boolean }) {
+function publicUser(
+  u: Pick<UserRow, 'id' | 'email' | 'created_at'> & {
+    email_reminders_enabled?: boolean;
+    timezone?: string;
+  }
+) {
   return {
     id: u.id,
     email: u.email,
     createdAt: u.created_at,
     emailRemindersEnabled: u.email_reminders_enabled ?? false,
+    timezone: u.timezone ?? 'UTC',
   };
 }
 
@@ -182,7 +188,7 @@ authRouter.get('/me', async (req, res) => {
     const supabase = getSupabase();
     const { data: user } = await supabase
       .from('users')
-      .select('id, email, created_at, email_reminders_enabled')
+      .select('id, email, created_at, email_reminders_enabled, timezone')
       .eq('id', payload.sub)
       .maybeSingle();
 

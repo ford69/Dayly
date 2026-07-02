@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { processNotificationQueue, sendDailySummaries } from '../backend/src/jobs/processNotifications.js';
+import { processNotificationQueue, runHourlyDigests } from '../backend/src/jobs/processNotifications.js';
 
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
@@ -9,10 +9,12 @@ export default async function handler(req, res) {
 
   try {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
-    if (url.searchParams.get('job') === 'daily-summaries') {
-      const queued = await sendDailySummaries();
+    const job = url.searchParams.get('job');
+
+    if (job === 'hourly-digests') {
+      const digests = await runHourlyDigests();
       const processed = await processNotificationQueue();
-      return res.json({ ok: true, ...queued, ...processed });
+      return res.json({ ok: true, ...digests, ...processed });
     }
 
     const result = await processNotificationQueue();

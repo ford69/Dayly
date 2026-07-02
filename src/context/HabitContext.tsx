@@ -72,7 +72,8 @@ export function HabitProvider({ children }: { children: ReactNode }) {
   const createHabit = useCallback(async (data: HabitFormData) => {
     const created = await apiFetch<{ habit: Habit }>('/api/habits', { method: 'POST', json: data });
     dispatch({ type: 'ADD_HABIT', payload: created.habit });
-  }, []);
+    await fetchHabits();
+  }, [fetchHabits]);
 
   const updateHabit = useCallback(async (id: string, data: Partial<HabitFormData>) => {
     const updated = await apiFetch<{ habit: Habit }>(`/api/habits/${id}`, {
@@ -80,7 +81,8 @@ export function HabitProvider({ children }: { children: ReactNode }) {
       json: data,
     });
     dispatch({ type: 'UPDATE_HABIT', payload: updated.habit });
-  }, []);
+    await fetchHabits();
+  }, [fetchHabits]);
 
   const deleteHabit = useCallback(async (id: string) => {
     await apiFetch(`/api/habits/${id}`, { method: 'DELETE' });

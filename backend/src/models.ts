@@ -39,6 +39,8 @@ export type HabitRow = {
   description: string;
   color: string;
   target_days: number[];
+  start_time: string;
+  end_time: string;
   created_at: string;
   updated_at: string;
 };

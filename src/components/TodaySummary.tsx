@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   Flame,
   Target,
@@ -8,11 +8,38 @@ import {
   Mail,
   Share2,
   Loader2,
+  Globe,
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { TodaySummary as TodaySummaryData, Task } from '../lib/types';
 import { formatDate, formatTime } from '../lib/utils';
 import { ShareDayPlan } from './ShareDayPlan';
+
+const COMMON_TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+  'UTC',
+];
+
+function browserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
+  }
+}
 
 interface TodaySummaryProps {
   darkMode: boolean;
@@ -60,8 +87,21 @@ export function TodaySummary({
   const [summary, setSummary] = useState<TodaySummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(emailRemindersEnabled);
-  const [savingEmail, setSavingEmail] = useState(false);
+  const [timezone, setTimezone] = useState('UTC');
+  const [savingPrefs, setSavingPrefs] = useState(false);
   const [showShare, setShowShare] = useState(false);
+
+  const loadPreferences = useCallback(async () => {
+    try {
+      const data = await apiFetch<{ email_reminders_enabled: boolean; timezone: string }>(
+        '/api/today/preferences'
+      );
+      setEmailEnabled(data.email_reminders_enabled);
+      setTimezone(data.timezone || browserTimezone());
+    } catch {
+      setTimezone(browserTimezone());
+    }
+  }, []);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -77,27 +117,40 @@ export function TodaySummary({
 
   useEffect(() => {
     void loadSummary();
-  }, [loadSummary, refreshKey]);
+    void loadPreferences();
+  }, [loadSummary, loadPreferences, refreshKey]);
 
   useEffect(() => {
     setEmailEnabled(emailRemindersEnabled);
   }, [emailRemindersEnabled]);
 
-  const toggleEmailReminders = async () => {
-    setSavingEmail(true);
+  const savePreferences = async (next: { email?: boolean; tz?: string }) => {
+    setSavingPrefs(true);
     try {
-      const next = !emailEnabled;
-      await apiFetch('/api/today/preferences', {
-        method: 'PUT',
-        json: { email_reminders_enabled: next },
-      });
-      setEmailEnabled(next);
+      const payload: Record<string, unknown> = {};
+      if (next.email !== undefined) payload.email_reminders_enabled = next.email;
+      if (next.tz !== undefined) payload.timezone = next.tz;
+
+      const data = await apiFetch<{ email_reminders_enabled: boolean; timezone: string }>(
+        '/api/today/preferences',
+        { method: 'PUT', json: payload }
+      );
+      setEmailEnabled(data.email_reminders_enabled);
+      setTimezone(data.timezone);
     } catch {
       // keep previous state
     } finally {
-      setSavingEmail(false);
+      setSavingPrefs(false);
     }
   };
+
+  const toggleEmailReminders = () => void savePreferences({ email: !emailEnabled });
+
+  const timezoneOptions = useMemo(() => {
+    const tz = browserTimezone();
+    const set = new Set([tz, timezone, ...COMMON_TIMEZONES]);
+    return Array.from(set).sort();
+  }, [timezone]);
 
   const taskById = (id: string) => todayTasks.find((t) => t.id === id);
 
@@ -236,33 +289,61 @@ export function TodaySummary({
         </div>
 
         <div
-          className={`px-5 py-3 border-t flex items-center justify-between flex-wrap gap-3 ${
+          className={`px-5 py-4 border-t space-y-3 ${
             darkMode ? 'border-gray-700 bg-gray-900/30' : 'border-gray-100 bg-gray-50/50'
           }`}
         >
-          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            {summary.tasks_completed}/{summary.tasks_total} tasks done today
-          </p>
-          <label className={`flex items-center gap-2 text-sm cursor-pointer ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            <Mail className="w-4 h-4" />
-            <span>Email reminders</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={emailEnabled}
-              disabled={savingEmail}
-              onClick={() => void toggleEmailReminders()}
-              className={`relative w-10 h-5 rounded-full transition-colors ${
-                emailEnabled ? 'bg-blue-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                  emailEnabled ? 'translate-x-5' : ''
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              {summary.tasks_completed}/{summary.tasks_total} tasks done today
+            </p>
+            <label className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              <Mail className="w-4 h-4" />
+              <span>Email alerts</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={emailEnabled}
+                disabled={savingPrefs}
+                onClick={toggleEmailReminders}
+                className={`relative w-10 h-5 rounded-full transition-colors ${
+                  emailEnabled ? 'bg-blue-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'
                 }`}
-              />
-            </button>
-          </label>
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    emailEnabled ? 'translate-x-5' : ''
+                  }`}
+                />
+              </button>
+            </label>
+          </div>
+
+          {emailEnabled && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <Globe className="w-4 h-4 shrink-0" />
+                <span className="shrink-0">Timezone</span>
+              </div>
+              <select
+                value={timezone}
+                disabled={savingPrefs}
+                onChange={(e) => void savePreferences({ tz: e.target.value })}
+                className={`flex-1 px-3 py-2 rounded-xl border text-sm outline-none ${
+                  darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
+                }`}
+              >
+                {timezoneOptions.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+              <p className={`text-xs sm:max-w-[200px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                Morning summary 7am · Catch-up digest 8pm
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </>

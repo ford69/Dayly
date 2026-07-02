@@ -15,8 +15,8 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron?job=daily-summaries",
-      "schedule": "0 7 * * *"
+      "path": "/api/cron?job=hourly-digests",
+      "schedule": "0 * * * *"
     }
   ],
   "rewrites": [
