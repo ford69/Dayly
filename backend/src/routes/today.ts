@@ -1,3 +1,4 @@
+/// <reference path="../types/express.ts" />
 import { Router } from 'express';
 import { getSupabase } from '../db';
 import { rescheduleAllUserReminders } from '../jobs/rescheduleUserReminders';

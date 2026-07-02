@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import '../types/express.js';
 import { verifyAuthToken, type JwtPayload } from '../auth';
 
 const COOKIE_NAME = 'mdp_token';

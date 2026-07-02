@@ -1,3 +1,4 @@
+/// <reference path="../types/express.ts" />
 import { Router } from 'express';
 import { z } from 'zod';
 import { getSupabase } from '../db';
