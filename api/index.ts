@@ -1,8 +1,4 @@
 // @ts-nocheck
-import { createApp } from '../backend/src/app';
-
-const app = createApp();
-
-export default function handler(req, res) {
-  app(req, res);
+export default function handler(_req, res) {
+  res.status(200).json({ ok: true, probe: 'minimal-api' });
 }
