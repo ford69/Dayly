@@ -17,7 +17,7 @@ function createSupabaseClient(): SupabaseClient {
   if (typeof globalThis.WebSocket === 'undefined') {
     const nodeRequire = createRequire(__filename);
     const ws = nodeRequire('ws') as typeof import('ws');
-    options.realtime = { transport: ws as unknown as typeof WebSocket };
+    options.realtime = { transport: ws as never };
   }
 
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, options);

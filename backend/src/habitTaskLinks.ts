@@ -1,5 +1,5 @@
-import { getSupabase } from '../db';
-import type { HabitRow } from '../models';
+import { getSupabase } from './db';
+import type { HabitRow } from './models';
 import { isGoalMet } from './habitsCore';
 
 export async function applyHabitLinksOnTaskComplete(userId: string, taskId: string, taskDate: string) {

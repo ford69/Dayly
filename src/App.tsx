@@ -48,6 +48,14 @@ function AppContent() {
   const handleEdit = (task: Task) => { setEditTask(task); setShowForm(true); };
   const handleClose = () => { setShowForm(false); setEditTask(null); };
 
+  const handleNotificationTaskClick = useCallback(
+    (taskId: string) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (task) handleEdit(task);
+    },
+    [tasks]
+  );
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
@@ -73,7 +81,7 @@ function AppContent() {
       <Navbar
         onAddTask={handleOpenAdd}
         onNavigateHome={goToDashboard}
-        notificationCount={notifications.length}
+        onNotificationTaskClick={handleNotificationTaskClick}
         onMenuClick={() => setMobileNavOpen(true)}
       />
 

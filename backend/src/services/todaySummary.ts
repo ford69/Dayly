@@ -12,7 +12,7 @@ export type TodaySummary = {
   tasks_total: number;
 };
 
-export async function computeProductivityScore(completed: number, total: number, focusMinutes: number): number {
+export function computeProductivityScore(completed: number, total: number, focusMinutes: number): number {
   if (total === 0) return focusMinutes > 0 ? 50 : 0;
   const completionPct = (completed / total) * 70;
   const focusBonus = Math.min(focusMinutes / 2, 30);
@@ -37,7 +37,7 @@ export async function upsertDailyStats(userId: string, date: string) {
     (focusSessions ?? []).reduce((sum, s) => sum + s.duration_seconds, 0) / 60
   );
 
-  const score = await computeProductivityScore(completed, total, focusMinutes);
+  const score = computeProductivityScore(completed, total, focusMinutes);
 
   await supabase.from('daily_stats').upsert(
     {

@@ -25,6 +25,7 @@ type TaskAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'ADD_NOTIFICATION'; payload: ReminderNotification }
   | { type: 'REMOVE_NOTIFICATION'; payload: string }
+  | { type: 'CLEAR_NOTIFICATIONS' }
   | { type: 'TOGGLE_DARK_MODE' }
   | { type: 'SET_SMART_REMINDER'; payload: string | null }
   | { type: 'SET_PLAN'; payload: { suggestions: PlanSuggestion[]; summary: string } }
@@ -55,6 +56,8 @@ function taskReducer(state: TaskState, action: TaskAction): TaskState {
         ...state,
         notifications: state.notifications.filter((n) => n.id !== action.payload),
       };
+    case 'CLEAR_NOTIFICATIONS':
+      return { ...state, notifications: [], smartReminder: null };
     case 'TOGGLE_DARK_MODE':
       return { ...state, darkMode: !state.darkMode };
     case 'SET_SMART_REMINDER':
@@ -92,6 +95,8 @@ interface TaskContextValue {
   logFocusSession: (taskId: string | null, durationSeconds: number) => Promise<void>;
   addNotification: (notification: ReminderNotification) => void;
   dismissNotification: (id: string) => void;
+  clearNotifications: () => void;
+  dismissSmartReminder: () => void;
   toggleDarkMode: () => void;
 }
 
@@ -256,6 +261,14 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'REMOVE_NOTIFICATION', payload: id });
   }, []);
 
+  const clearNotifications = useCallback(() => {
+    dispatch({ type: 'CLEAR_NOTIFICATIONS' });
+  }, []);
+
+  const dismissSmartReminder = useCallback(() => {
+    dispatch({ type: 'SET_SMART_REMINDER', payload: null });
+  }, []);
+
   const toggleDarkMode = useCallback(() => {
     dispatch({ type: 'TOGGLE_DARK_MODE' });
     const current = localStorage.getItem('day_planner_dark_mode') === 'true';
@@ -284,6 +297,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         logFocusSession,
         addNotification,
         dismissNotification,
+        clearNotifications,
+        dismissSmartReminder,
         toggleDarkMode,
       }}
     >

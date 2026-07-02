@@ -182,7 +182,7 @@ async function queueMissedDigest(
   const { data: habits } = await supabase.from('habits').select('*').eq('user_id', user.id);
   const { data: logs } = await supabase
     .from('habit_logs')
-    .select('habit_id, date, completed')
+    .select('habit_id, date, completed, value')
     .eq('user_id', user.id)
     .gte('date', addDays(localDate, -MISSED_LOOKBACK_DAYS));
 

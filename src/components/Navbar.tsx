@@ -1,19 +1,24 @@
+import { useState } from 'react';
 import { Moon, Sun, Bell, Plus, LogOut, Menu } from 'lucide-react';
 import { useTaskContext } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
+import { NotificationPanel } from './NotificationPanel';
 import { formatDate, todayString } from '../lib/utils';
 
 interface NavbarProps {
   onAddTask: () => void;
   onNavigateHome: () => void;
-  notificationCount: number;
+  onNotificationTaskClick?: (taskId: string) => void;
   onMenuClick?: () => void;
 }
 
-export function Navbar({ onAddTask, onNavigateHome, notificationCount, onMenuClick }: NavbarProps) {
-  const { state, toggleDarkMode } = useTaskContext();
-  const { darkMode } = state;
+export function Navbar({ onAddTask, onNavigateHome, onNotificationTaskClick, onMenuClick }: NavbarProps) {
+  const { state, toggleDarkMode, dismissNotification, clearNotifications, dismissSmartReminder } = useTaskContext();
+  const { notifications, smartReminder, darkMode } = state;
   const { logout } = useAuth();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const notificationCount = notifications.length + (smartReminder ? 1 : 0);
 
   return (
     <header
@@ -68,18 +73,41 @@ export function Navbar({ onAddTask, onNavigateHome, notificationCount, onMenuCli
           <span className="hidden sm:inline">Add Task</span>
         </button>
 
-        <div className="relative hidden sm:block">
+        <div className="relative">
           <button
+            type="button"
+            onClick={() => setNotificationsOpen((o) => !o)}
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors duration-200 ${
-              darkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-500'
+              notificationsOpen
+                ? darkMode
+                  ? 'bg-gray-800 text-blue-400'
+                  : 'bg-blue-50 text-blue-600'
+                : darkMode
+                  ? 'hover:bg-gray-800 text-gray-400'
+                  : 'hover:bg-gray-100 text-gray-500'
             }`}
             aria-label="Notifications"
+            aria-expanded={notificationsOpen}
           >
             <Bell className="w-4.5 h-4.5" />
             {notificationCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900" />
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold bg-red-500 text-white rounded-full ring-2 ring-white dark:ring-gray-900">
+                {notificationCount > 9 ? '9+' : notificationCount}
+              </span>
             )}
           </button>
+
+          <NotificationPanel
+            open={notificationsOpen}
+            onClose={() => setNotificationsOpen(false)}
+            notifications={notifications}
+            smartReminder={smartReminder}
+            darkMode={darkMode}
+            onDismiss={dismissNotification}
+            onClearAll={clearNotifications}
+            onDismissSmartReminder={dismissSmartReminder}
+            onTaskClick={onNotificationTaskClick}
+          />
         </div>
 
         <button
