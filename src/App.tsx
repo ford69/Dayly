@@ -4,6 +4,7 @@ import { HabitProvider } from './context/HabitContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { TaskForm } from './components/TaskForm';
 import { FocusMode } from './components/FocusMode';
 import { Dashboard } from './pages/Dashboard';
@@ -27,6 +28,13 @@ function AppContent() {
   const handleViewChange = useCallback((next: ViewMode) => {
     setView(next);
     setMobileNavOpen(false);
+  }, []);
+
+  const goToDashboard = useCallback(() => {
+    setView('dashboard');
+    setSelectedDate(todayString());
+    setMobileNavOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const handleNotify = useCallback(
@@ -53,34 +61,46 @@ function AppContent() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [mobileNavOpen]);
 
-  const dashboard = (
-    <Dashboard
-      onEdit={handleEdit}
-      view={view}
-      selectedDate={selectedDate}
-      onDateChange={setSelectedDate}
-      onFocus={() => setShowFocus(true)}
-    />
-  );
+  useEffect(() => {
+    document.body.style.overflow = mobileNavOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileNavOpen]);
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen transition-colors duration-300 overflow-x-hidden ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
       <Navbar
         onAddTask={handleOpenAdd}
+        onNavigateHome={goToDashboard}
         notificationCount={notifications.length}
         onMenuClick={() => setMobileNavOpen(true)}
       />
 
-      <div className="hidden md:flex">
-        <Sidebar currentView={view} onViewChange={handleViewChange} />
-        <main className="ml-64 mt-16 flex-1 p-6 min-h-[calc(100vh-4rem)]">
-          <div className="max-w-4xl mx-auto">{dashboard}</div>
+      <div className="flex pt-14 sm:pt-16 min-h-screen">
+        <div className="hidden md:block">
+          <Sidebar currentView={view} onViewChange={handleViewChange} />
+        </div>
+
+        <main className="flex-1 w-full min-w-0 md:ml-64 px-3 sm:px-6 py-4 sm:py-6 pb-20 md:pb-6">
+          <div className="max-w-4xl mx-auto w-full">
+            <Dashboard
+              onEdit={handleEdit}
+              view={view}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              onFocus={() => setShowFocus(true)}
+            />
+          </div>
         </main>
       </div>
 
-      <div className="md:hidden mt-16">
-        <main className="p-4">{dashboard}</main>
-      </div>
+      <MobileBottomNav
+        currentView={view}
+        onViewChange={handleViewChange}
+        onOpenMenu={() => setMobileNavOpen(true)}
+        darkMode={darkMode}
+      />
 
       {mobileNavOpen && (
         <div className="md:hidden fixed inset-0 z-50">
@@ -89,7 +109,7 @@ function AppContent() {
             onClick={() => setMobileNavOpen(false)}
             aria-hidden
           />
-          <div className="absolute left-0 top-16 bottom-0 w-64 max-w-[85vw] shadow-2xl">
+          <div className="absolute left-0 top-14 sm:top-16 bottom-0 w-[min(280px,88vw)] shadow-2xl animate-[slideInDrawer_0.2s_ease-out]">
             <Sidebar currentView={view} onViewChange={handleViewChange} isDrawer />
           </div>
         </div>

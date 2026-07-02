@@ -13,7 +13,7 @@ export function ReminderToast({ notifications }: ReminderToastProps) {
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm">
+    <div className="fixed bottom-20 md:bottom-6 right-3 sm:right-6 left-3 sm:left-auto z-50 flex flex-col gap-3 sm:max-w-sm">
       {notifications.map((n) => (
         <div
           key={n.id}

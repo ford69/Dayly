@@ -1,7 +1,8 @@
 import {
-  LayoutDashboard, Clock, ListTodo, ChevronRight, CalendarRange, Calendar, ListOrdered, Target,
+  LayoutDashboard, Clock, ListTodo, ChevronRight, CalendarRange, Calendar, ListOrdered, Target, LogOut,
 } from 'lucide-react';
 import { useTaskContext } from '../context/TaskContext';
+import { useAuth } from '../context/AuthContext';
 import { ViewMode } from '../lib/types';
 import { todayString } from '../lib/utils';
 
@@ -25,6 +26,7 @@ const navItems: { id: ViewMode; label: string; icon: typeof LayoutDashboard }[] 
 export function Sidebar({ currentView, onViewChange, isDrawer = false }: SidebarProps) {
   const { state } = useTaskContext();
   const { tasks, darkMode } = state;
+  const { logout } = useAuth();
   const today = todayString();
 
   const todayTasks = tasks.filter((t) => t.date === today);
@@ -34,7 +36,7 @@ export function Sidebar({ currentView, onViewChange, isDrawer = false }: Sidebar
 
   return (
     <aside
-      className={`${isDrawer ? 'h-full' : 'fixed left-0 top-16 bottom-0'} w-64 border-r flex flex-col transition-colors duration-300 overflow-y-auto ${
+      className={`${isDrawer ? 'h-full' : 'fixed left-0 top-14 sm:top-16 bottom-0'} w-64 border-r flex flex-col transition-colors duration-300 overflow-y-auto ${
         darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-100 text-gray-900'
       }`}
     >
@@ -67,7 +69,7 @@ export function Sidebar({ currentView, onViewChange, isDrawer = false }: Sidebar
         <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{completedToday} of {totalToday} tasks completed</p>
       </div>
 
-      <div className="mx-4 mt-2 grid grid-cols-2 gap-2">
+      <div className="mx-4 mt-2 grid grid-cols-2 gap-2 mb-4">
         {[
           { label: 'Total', value: tasks.length, color: 'blue' },
           { label: 'Today', value: totalToday, color: 'teal' },
@@ -80,6 +82,20 @@ export function Sidebar({ currentView, onViewChange, isDrawer = false }: Sidebar
           </div>
         ))}
       </div>
+
+      {isDrawer && (
+        <div className="mt-auto p-4 border-t border-inherit">
+          <button
+            onClick={() => void logout()}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium ${
+              darkMode ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <LogOut className="w-4.5 h-4.5" />
+            Log out
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

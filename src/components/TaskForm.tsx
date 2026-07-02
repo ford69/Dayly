@@ -94,14 +94,14 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
   const statuses: Status[] = ['pending', 'completed'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
-        className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden ${
+        className={`relative w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[85vh] ${
           darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-100'
         }`}
       >
-        <div className={`flex items-center justify-between px-6 py-5 border-b ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+        <div className={`flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b shrink-0 ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
           <h2 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             {editTask ? 'Edit Task' : 'Create New Task'}
           </h2>
@@ -110,7 +110,7 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           <div>
             <label className={labelClass}><Type className="w-3.5 h-3.5" />Title</label>
             <input type="text" placeholder="What needs to be done?" className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required autoFocus />
@@ -198,7 +198,7 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
           )}
         </form>
 
-        <div className={`flex gap-3 px-6 py-5 border-t ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+        <div className={`flex gap-3 px-4 sm:px-6 py-4 sm:py-5 border-t shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-5 ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
           <button type="button" onClick={onClose} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border ${darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'}`}>Cancel</button>
           <button onClick={handleSubmit} disabled={submitting || !form.title.trim() || !!timeError} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50">
             {submitting ? 'Saving...' : editTask ? 'Save Changes' : 'Create Task'}

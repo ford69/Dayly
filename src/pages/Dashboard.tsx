@@ -126,21 +126,21 @@ export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }:
       <div className="space-y-6">
         {showPlan && <PlanMyDay date={today} onClose={() => setShowPlan(false)} />}
 
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className={`text-xl sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
               Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'} 👋
             </h1>
             <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{formatDate(today)}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => { clearPlan(); setShowPlan(true); }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-semibold hover:opacity-90">
-              <Sparkles className="w-4 h-4" />Plan my day
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button onClick={() => { clearPlan(); setShowPlan(true); }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-semibold hover:opacity-90">
+              <Sparkles className="w-4 h-4 shrink-0" /><span className="truncate">Plan my day</span>
             </button>
-            <button onClick={onFocus} className="px-4 py-2 rounded-xl border text-sm font-semibold border-blue-500 text-blue-500 hover:bg-blue-500/10">
+            <button onClick={onFocus} className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl border text-sm font-semibold border-blue-500 text-blue-500 hover:bg-blue-500/10 text-center">
               Focus
             </button>
-            <button onClick={() => fetchTasks()} className={`w-9 h-9 rounded-xl flex items-center justify-center ${darkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-400'}`}>
+            <button onClick={() => fetchTasks()} className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center ${darkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-400'}`}>
               <RefreshCw className={`w-4.5 h-4.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
