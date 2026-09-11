@@ -26,7 +26,20 @@
     <meta name="twitter:image" content="https://dayly-sage.vercel.app/dayly.png" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div
+        id="boot-splash"
+        style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc 0%,#eef2ff 50%,#fff1f2 100%);"
+      >
+        <img
+          src="/dayly.png"
+          alt="Dayly"
+          width="200"
+          height="60"
+          style="height:56px;width:auto;max-width:240px;object-fit:contain;opacity:0.9;"
+        />
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

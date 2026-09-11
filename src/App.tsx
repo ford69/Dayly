@@ -10,6 +10,7 @@ import { FocusMode } from './components/FocusMode';
 import { Dashboard } from './pages/Dashboard';
 import { AuthPage } from './pages/AuthPage';
 import { LegalPage } from './pages/LegalPage';
+import { SplashLoader } from './components/SplashLoader';
 import { ReminderToast } from './components/ReminderToast';
 import { useReminders } from './hooks/useReminders';
 import { Task, ViewMode, ReminderNotification } from './lib/types';
@@ -152,13 +153,7 @@ function AppGate() {
 
   if (legal) return <LegalPage kind={legal} />;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0b0b10] text-white flex items-center justify-center">
-        <div className="text-sm text-white/70">Loading…</div>
-      </div>
-    );
-  }
+  if (loading) return <SplashLoader />;
 
   if (!user) return <AuthPage />;
 
