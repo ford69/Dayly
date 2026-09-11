@@ -28,7 +28,9 @@ interface HabitFormProps {
   initial?: Partial<HabitFormData>;
   darkMode: boolean;
   submitLabel: string;
-  onSubmit: (data: HabitFormData) => void;
+  submitting?: boolean;
+  error?: string | null;
+  onSubmit: (data: HabitFormData) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -53,7 +55,7 @@ export function habitToForm(habit: Habit): HabitFormData {
   };
 }
 
-export function HabitForm({ initial, darkMode, submitLabel, onSubmit, onCancel }: HabitFormProps) {
+export function HabitForm({ initial, darkMode, submitLabel, submitting, error, onSubmit, onCancel }: HabitFormProps) {
   const [form, setForm] = useState<HabitFormData>({ ...DEFAULT, ...initial });
 
   const inputClass = `w-full px-3 py-2 rounded-xl border text-sm outline-none ${
@@ -87,7 +89,8 @@ export function HabitForm({ initial, darkMode, submitLabel, onSubmit, onCancel }
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ ...form, start_date: form.start_date ?? todayString() });
+        if (submitting || !form.title.trim()) return;
+        void onSubmit({ ...form, title: form.title.trim(), start_date: form.start_date ?? todayString() });
       }}
       className="space-y-4"
     >
@@ -307,16 +310,24 @@ export function HabitForm({ initial, darkMode, submitLabel, onSubmit, onCancel }
         <button
           type="button"
           onClick={onCancel}
+          disabled={submitting}
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border ${
             darkMode ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-600'
           }`}
         >
           Cancel
         </button>
-        <button type="submit" className="flex-1 py-2.5 rounded-xl bg-blue-500 text-white font-semibold text-sm">
-          {submitLabel}
+        <button
+          type="submit"
+          disabled={submitting || !form.title.trim()}
+          className="flex-1 py-2.5 rounded-xl bg-blue-500 text-white font-semibold text-sm disabled:opacity-50"
+        >
+          {submitting ? 'Saving…' : submitLabel}
         </button>
       </div>
+      {error && (
+        <p className={`text-sm ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{error}</p>
+      )}
     </form>
   );
 }

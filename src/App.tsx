@@ -9,10 +9,18 @@ import { TaskForm } from './components/TaskForm';
 import { FocusMode } from './components/FocusMode';
 import { Dashboard } from './pages/Dashboard';
 import { AuthPage } from './pages/AuthPage';
+import { LegalPage } from './pages/LegalPage';
 import { ReminderToast } from './components/ReminderToast';
 import { useReminders } from './hooks/useReminders';
 import { Task, ViewMode, ReminderNotification } from './lib/types';
 import { todayString } from './lib/utils';
+
+function legalPath(): 'privacy' | 'terms' | null {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/privacy') return 'privacy';
+  if (path === '/terms') return 'terms';
+  return null;
+}
 
 function AppContent() {
   const { state, addNotification } = useTaskContext();
@@ -140,6 +148,9 @@ export default function App() {
 
 function AppGate() {
   const { user, loading } = useAuth();
+  const legal = legalPath();
+
+  if (legal) return <LegalPage kind={legal} />;
 
   if (loading) {
     return (

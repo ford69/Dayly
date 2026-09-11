@@ -3,18 +3,6 @@ import { useAuth } from '../context/AuthContext';
 
 type Mode = 'login' | 'signup';
 
-function AppBadge({ label }: { label: string }) {
-  return (
-    <div className="h-10 px-3 rounded-lg border border-slate-200 bg-white flex items-center gap-2 shadow-sm">
-      <div className="h-6 w-6 rounded-md bg-slate-100" />
-      <div className="leading-tight">
-        <div className="text-[10px] text-slate-500">Download on</div>
-        <div className="text-xs font-semibold text-slate-700">{label}</div>
-      </div>
-    </div>
-  );
-}
-
 export function AuthPage() {
   const { login, signup, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
@@ -224,26 +212,25 @@ export function AuthPage() {
             </div>
 
             <div className="mt-10 text-center text-xs text-slate-500">
-              By continuing, you&apos;re signing up to My Daily Planner.
-            </div>
-
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <AppBadge label="Google Play" />
-              <AppBadge label="App Store" />
+              By continuing, you agree to Dayly&apos;s{' '}
+              <a href="/privacy" className="text-slate-900 underline underline-offset-4 hover:text-slate-700">
+                Privacy Policy
+              </a>{' '}
+              and{' '}
+              <a href="/terms" className="text-slate-900 underline underline-offset-4 hover:text-slate-700">
+                Terms of Service
+              </a>
+              .
             </div>
 
             <div className="mt-8 flex items-center justify-center gap-4 text-xs text-slate-500">
-              <button className="hover:text-slate-700 transition" type="button">
+              <a href="/privacy" className="hover:text-slate-700 transition">
                 Privacy Policy
-              </button>
+              </a>
               <span className="text-slate-300">|</span>
-              <button className="hover:text-slate-700 transition" type="button">
+              <a href="/terms" className="hover:text-slate-700 transition">
                 Terms of Service
-              </button>
-              <span className="text-slate-300">|</span>
-              <button className="hover:text-slate-700 transition" type="button">
-                Data Processing
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -251,4 +238,3 @@ export function AuthPage() {
     </div>
   );
 }
-

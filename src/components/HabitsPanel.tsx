@@ -23,13 +23,15 @@ export function HabitsPanel() {
     fetchHeatmap,
   } = useHabits();
   const { state: taskState } = useTaskContext();
-  const { habits, loading, weekly } = state;
+  const { habits, loading, weekly, error: loadError } = state;
   const { darkMode } = taskState;
 
   const [showForm, setShowForm] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
   const [expandedHeatmap, setExpandedHeatmap] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const todayHabits = habits.filter((h) => h.scheduled_today);
   const otherHabits = habits.filter((h) => !h.scheduled_today);
@@ -38,6 +40,8 @@ export function HabitsPanel() {
   const closeForm = () => {
     setShowForm(false);
     setEditing(null);
+    setFormError(null);
+    setSubmitting(false);
   };
 
   return (
@@ -62,6 +66,7 @@ export function HabitsPanel() {
           <button
             onClick={() => {
               setEditing(null);
+              setFormError(null);
               setShowForm(true);
             }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-semibold hover:bg-blue-600"
@@ -73,6 +78,12 @@ export function HabitsPanel() {
       </div>
 
       <HabitWeeklyDashboard stats={weekly} darkMode={darkMode} />
+
+      {loadError && (
+        <div className={`rounded-xl border px-4 py-3 text-sm ${darkMode ? 'border-red-800 bg-red-950/40 text-red-300' : 'border-red-200 bg-red-50 text-red-700'}`}>
+          {loadError}
+        </div>
+      )}
 
       {showTemplates && (
         <HabitTemplatesModal
@@ -97,11 +108,22 @@ export function HabitsPanel() {
             darkMode={darkMode}
             initial={editing ? habitToForm(editing) : undefined}
             submitLabel={editing ? 'Save' : 'Create'}
+            submitting={submitting}
+            error={formError}
             onCancel={closeForm}
             onSubmit={async (data) => {
-              if (editing) await updateHabit(editing.id, data);
-              else await createHabit(data);
-              closeForm();
+              setFormError(null);
+              setSubmitting(true);
+              try {
+                if (editing) await updateHabit(editing.id, data);
+                else await createHabit(data);
+                closeForm();
+              } catch (err) {
+                const message = err instanceof Error ? err.message : 'Failed to save habit';
+                setFormError(message);
+              } finally {
+                setSubmitting(false);
+              }
             }}
           />
         </div>

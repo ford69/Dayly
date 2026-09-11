@@ -311,7 +311,13 @@ habitsRouter.post('/', async (req, res) => {
     .select()
     .single();
 
-  if (error || !data) return res.status(500).json({ error: 'Failed to create habit' });
+  if (error || !data) {
+    const schemaHint =
+      error?.code === 'PGRST204'
+        ? ' Database schema is out of date — apply the latest Supabase migrations.'
+        : '';
+    return res.status(500).json({ error: `Failed to create habit.${schemaHint}` });
+  }
 
   const habit = data as HabitRow;
   void afterHabitChange(req.auth.sub, habit);
