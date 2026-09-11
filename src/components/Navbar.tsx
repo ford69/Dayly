@@ -49,14 +49,9 @@ export function Navbar({ onAddTask, onNavigateHome, onNotificationTaskClick, onM
           <img
             src="/dayly.png"
             alt="Dayly"
-            className="w-9 h-9 sm:w-11 sm:h-11 object-contain"
+            className="h-8 sm:h-10 w-auto max-w-[120px] sm:max-w-[140px] object-contain"
           />
         </button>
-        <span
-          className={`md:hidden text-sm font-bold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}
-        >
-          Dayly
-        </span>
       </div>
 
       <div className={`hidden lg:block text-sm font-medium shrink-0 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>

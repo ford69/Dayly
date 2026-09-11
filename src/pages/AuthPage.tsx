@@ -131,7 +131,7 @@ export function AuthPage() {
               <img
                 src="/dayly.png"
                 alt="Dayly"
-                className="h-20 w-20 object-contain"
+                className="h-14 sm:h-16 w-auto max-w-[220px] object-contain"
               />
             </div>
 

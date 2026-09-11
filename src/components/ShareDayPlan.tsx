@@ -79,10 +79,10 @@ export function ShareDayPlan({ summary, tasks, darkMode, onClose }: ShareDayPlan
               darkMode ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700' : 'bg-gradient-to-br from-blue-50 to-purple-50 border-blue-100'
             }`}
           >
-            <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-              Dayly
-            </p>
-            <p className={`text-xl font-bold mt-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className="flex items-center gap-2">
+              <img src="/dayly.png" alt="Dayly" className="h-6 w-auto object-contain" />
+            </div>
+            <p className={`text-xl font-bold mt-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
               {formatDate(summary.date)}
             </p>
             <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>

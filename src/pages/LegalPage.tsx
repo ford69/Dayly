@@ -228,7 +228,7 @@ export function LegalPage({ kind }: { kind: LegalKind }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/50 to-rose-50/40 text-slate-900">
       <div className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
         <a href="/" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition">
-          <img src="/dayly.png" alt="Dayly" className="h-8 w-8 object-contain" />
+          <img src="/dayly.png" alt="Dayly" className="h-8 w-auto object-contain" />
           Back to Dayly
         </a>
 

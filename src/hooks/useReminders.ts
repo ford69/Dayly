@@ -19,7 +19,7 @@ export function useReminders({ tasks, onNotify }: UseRemindersOptions) {
 
   const sendBrowserNotification = useCallback((title: string, body: string) => {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: '/vite.svg' });
+      new Notification(title, { body, icon: '/dayly.png' });
     }
   }, []);
 
