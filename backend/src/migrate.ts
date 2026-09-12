@@ -12,8 +12,6 @@ async function migrate() {
     'tasks',
     'habits',
     'habit_logs',
-    'habit_task_links',
-    'habit_streak_freezes',
     'task_dependencies',
     'focus_sessions',
     'workspaces',
@@ -28,12 +26,15 @@ async function migrate() {
     }
   }
 
-  // Optional PWA table — warn only until migration is applied
-  {
-    const { error } = await supabase.from('push_subscriptions').select('*').limit(0);
+  for (const [table, hint] of [
+    ['habit_task_links', '20260629000000_habits_v2.sql'],
+    ['habit_streak_freezes', '20260629000000_habits_v2.sql'],
+    ['push_subscriptions', '20260630000000_push_subscriptions.sql'],
+  ] as const) {
+    const { error } = await supabase.from(table).select('*').limit(0);
     if (error) {
       // eslint-disable-next-line no-console
-      console.warn('Optional table push_subscriptions missing — apply 20260630000000_push_subscriptions.sql for Web Push.');
+      console.warn(`Optional table ${table} missing — apply ${hint}.`);
     }
   }
 

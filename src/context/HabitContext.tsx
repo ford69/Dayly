@@ -78,18 +78,26 @@ export function HabitProvider({ children }: { children: ReactNode }) {
     try {
       const qs = date ? `?date=${encodeURIComponent(date)}` : '';
       const data = await apiFetch<{ habits: Habit[] }>(`/api/habits${qs}`);
+      dispatch({ type: 'SET_ERROR', payload: null });
       dispatch({ type: 'SET_HABITS', payload: data.habits ?? [] });
-    } catch {
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to load habits' });
+    } catch (err) {
+      dispatch({
+        type: 'SET_ERROR',
+        payload: err instanceof Error ? err.message : 'Failed to load habits',
+      });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, []);
 
   const fetchWeekly = useCallback(async (weekStart?: string) => {
-    const qs = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : '';
-    const data = await apiFetch<{ stats: HabitWeeklyStats }>(`/api/habits/weekly${qs}`);
-    dispatch({ type: 'SET_WEEKLY', payload: data.stats });
+    try {
+      const qs = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : '';
+      const data = await apiFetch<{ stats: HabitWeeklyStats }>(`/api/habits/weekly${qs}`);
+      dispatch({ type: 'SET_WEEKLY', payload: data.stats });
+    } catch {
+      dispatch({ type: 'SET_WEEKLY', payload: null });
+    }
   }, []);
 
   const createHabit = useCallback(

@@ -21,7 +21,14 @@ import {
   scheduleHabitReminders,
   scheduleHabitRemindersForDate,
 } from '../jobs/scheduleHabitReminders';
-import { isUuid, type HabitLogRow, type HabitRow } from '../models';
+import {
+  isMissingSchemaError,
+  isUuid,
+  normalizeHabitLogRow,
+  normalizeHabitRow,
+  type HabitLogRow,
+  type HabitRow,
+} from '../models';
 import { requireAuth } from '../middleware/requireAuth';
 import { addDays, todayString } from '../recurrence';
 
@@ -69,7 +76,7 @@ async function loadHabitContext(userId: string, habitIds: string[], date: string
       supabase.from('habit_logs').select('*').eq('user_id', userId).in('habit_id', habitIds),
       supabase.from('habit_streak_freezes').select('habit_id, date').eq('user_id', userId).in('habit_id', habitIds),
     ]);
-    logs = (logData ?? []) as HabitLogRow[];
+    logs = (logData ?? []).map((row) => normalizeHabitLogRow(row as Record<string, unknown>));
     freezes = (freezeData ?? []).map((f) => `${f.habit_id}:${f.date}`);
   }
 
@@ -88,6 +95,23 @@ async function loadHabitContext(userId: string, habitIds: string[], date: string
   }
 
   return { logsByHabit, freezesByHabit };
+}
+
+async function listUserHabits(userId: string): Promise<{ habits: HabitRow[]; error: string | null }> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('habits')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (error) return { habits: [], error: error.message };
+
+  const habits = (data ?? [])
+    .map((row) => normalizeHabitRow(row as Record<string, unknown>))
+    .filter((h) => h.status !== 'archived');
+
+  return { habits, error: null };
 }
 
 function toPublicHabit(
@@ -172,7 +196,10 @@ habitsRouter.get('/links', async (req, res) => {
   if (habitId) query = query.eq('habit_id', habitId);
 
   const { data, error } = await query;
-  if (error) return res.status(500).json({ error: 'Failed to load links' });
+  if (error) {
+    if (isMissingSchemaError(error)) return res.json({ links: [] });
+    return res.status(500).json({ error: 'Failed to load links' });
+  }
   return res.json({ links: data ?? [] });
 });
 
@@ -182,14 +209,11 @@ habitsRouter.get('/weekly', async (req, res) => {
     typeof req.query.week_start === 'string' ? req.query.week_start : todayString();
   const weekEnd = addDays(weekStart, 6);
 
-  const supabase = getSupabase();
-  const { data: habits } = await supabase
-    .from('habits')
-    .select('*')
-    .eq('user_id', req.auth.sub)
-    .neq('status', 'archived');
+  const { habits, error } = await listUserHabits(req.auth.sub);
+  if (error) return res.status(500).json({ error: 'Failed to load habits' });
 
-  const habitIds = (habits ?? []).map((h) => h.id);
+  const habitIds = habits.map((h) => h.id);
+  const supabase = getSupabase();
   const { data: logs } =
     habitIds.length > 0
       ? await supabase
@@ -202,8 +226,8 @@ habitsRouter.get('/weekly', async (req, res) => {
       : { data: [] };
 
   const stats = computeWeeklyStats(
-    (habits ?? []) as HabitRow[],
-    (logs ?? []) as HabitLogRow[],
+    habits,
+    (logs ?? []).map((row) => normalizeHabitLogRow(row as Record<string, unknown>)),
     weekStart,
     weekEnd
   );
@@ -215,28 +239,19 @@ habitsRouter.get('/', async (req, res) => {
   if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
 
   const date = typeof req.query.date === 'string' ? req.query.date : todayString();
-  const supabase = getSupabase();
-
-  const { data: habits, error } = await supabase
-    .from('habits')
-    .select('*')
-    .eq('user_id', req.auth.sub)
-    .neq('status', 'archived')
-    .order('created_at', { ascending: true });
-
+  const { habits, error } = await listUserHabits(req.auth.sub);
   if (error) return res.status(500).json({ error: 'Failed to load habits' });
 
-  const habitIds = (habits ?? []).map((h) => h.id);
+  const habitIds = habits.map((h) => h.id);
   const { logsByHabit, freezesByHabit } = await loadHabitContext(req.auth.sub, habitIds, date);
 
-  const result = (habits ?? []).map((h) => {
-    const row = h as HabitRow;
-    return toPublicHabit(row, {
+  const result = habits.map((row) =>
+    toPublicHabit(row, {
       date,
       logs: logsByHabit.get(row.id) ?? [],
       freezes: freezesByHabit.get(row.id) ?? [],
-    });
-  });
+    })
+  );
 
   result.sort((a, b) => {
     if (a.scheduled_today !== b.scheduled_today) return a.scheduled_today ? -1 : 1;
@@ -273,7 +288,12 @@ habitsRouter.get('/:id/heatmap', async (req, res) => {
     .gte('date', from)
     .lte('date', to);
 
-  const cells = buildHeatmap(habit as HabitRow, (logs ?? []) as HabitLogRow[], from, to);
+  const cells = buildHeatmap(
+    normalizeHabitRow(habit as Record<string, unknown>),
+    (logs ?? []).map((row) => normalizeHabitLogRow(row as Record<string, unknown>)),
+    from,
+    to
+  );
   return res.json({ habit_id: id, from, to, cells });
 });
 
@@ -303,8 +323,9 @@ habitsRouter.get('/:id/insights', async (req, res) => {
     .gte('date', from)
     .lte('date', to);
 
-  const insights = computeInsights(habit as HabitRow, (logs ?? []) as HabitLogRow[], from, to);
-  const suggested = suggestReminderTime((logs ?? []) as HabitLogRow[]);
+  const normalizedLogs = (logs ?? []).map((row) => normalizeHabitLogRow(row as Record<string, unknown>));
+  const insights = computeInsights(normalizeHabitRow(habit as Record<string, unknown>), normalizedLogs, from, to);
+  const suggested = suggestReminderTime(normalizedLogs);
 
   return res.json({ insights, suggested_reminder: suggested });
 });
@@ -320,28 +341,40 @@ habitsRouter.post('/', async (req, res) => {
   const supabase = getSupabase();
   const { target_days, start_date, ...rest } = parsed.data;
 
-  const { data, error } = await supabase
-    .from('habits')
-    .insert({
-      user_id: req.auth.sub,
-      ...rest,
-      start_date: start_date ?? todayString(),
-      target_days: target_days ?? [0, 1, 2, 3, 4, 5, 6],
-      created_at: now,
-      updated_at: now,
-    })
-    .select()
-    .single();
+  const payload = {
+    user_id: req.auth.sub,
+    ...rest,
+    start_date: start_date ?? todayString(),
+    target_days: target_days ?? [0, 1, 2, 3, 4, 5, 6],
+    created_at: now,
+    updated_at: now,
+  };
 
-  if (error || !data) {
-    const schemaHint =
-      error?.code === 'PGRST204'
-        ? ' Database schema is out of date — apply the latest Supabase migrations.'
-        : '';
-    return res.status(500).json({ error: `Failed to create habit.${schemaHint}` });
+  let { data, error } = await supabase.from('habits').insert(payload).select().single();
+
+  if (error && isMissingSchemaError(error)) {
+    const fallback = await supabase
+      .from('habits')
+      .insert({
+        user_id: req.auth.sub,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        color: parsed.data.color,
+        target_days: payload.target_days,
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single();
+    data = fallback.data;
+    error = fallback.error;
   }
 
-  const habit = data as HabitRow;
+  if (error || !data) {
+    return res.status(500).json({ error: 'Failed to create habit' });
+  }
+
+  const habit = normalizeHabitRow(data as Record<string, unknown>);
   void afterHabitChange(req.auth.sub, habit);
 
   return res.status(201).json({
@@ -362,30 +395,43 @@ habitsRouter.post('/from-template', async (req, res) => {
   const created = [];
 
   for (const item of group.habits) {
-    const { data } = await supabase
-      .from('habits')
-      .insert({
-        user_id: req.auth.sub,
-        title: item.title,
-        description: item.description ?? '',
-        icon: item.icon,
-        color: 'blue',
-        category: item.category,
-        frequency: item.frequency,
-        frequency_config: item.frequency_config ?? {},
-        goal_type: item.goal_type,
-        target: item.target,
-        unit: item.unit,
-        start_date: todayString(),
-        status: 'active',
-        target_days: [0, 1, 2, 3, 4, 5, 6],
-        created_at: now,
-        updated_at: now,
-      })
-      .select()
-      .single();
+    const payload = {
+      user_id: req.auth.sub,
+      title: item.title,
+      description: item.description ?? '',
+      icon: item.icon,
+      color: 'blue',
+      category: item.category,
+      frequency: item.frequency,
+      frequency_config: item.frequency_config ?? {},
+      goal_type: item.goal_type,
+      target: item.target,
+      unit: item.unit,
+      start_date: todayString(),
+      status: 'active',
+      target_days: [0, 1, 2, 3, 4, 5, 6],
+      created_at: now,
+      updated_at: now,
+    };
+    let { data, error } = await supabase.from('habits').insert(payload).select().single();
+    if (error && isMissingSchemaError(error)) {
+      const fallback = await supabase
+        .from('habits')
+        .insert({
+          user_id: req.auth.sub,
+          title: item.title,
+          description: item.description ?? '',
+          color: 'blue',
+          target_days: [0, 1, 2, 3, 4, 5, 6],
+          created_at: now,
+          updated_at: now,
+        })
+        .select()
+        .single();
+      data = fallback.data;
+    }
     if (data) {
-      void afterHabitChange(req.auth.sub, data as HabitRow);
+      void afterHabitChange(req.auth.sub, normalizeHabitRow(data as Record<string, unknown>));
       created.push(data);
     }
   }
@@ -403,7 +449,7 @@ habitsRouter.put('/:id', async (req, res) => {
 
   const now = new Date().toISOString();
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('habits')
     .update({ ...parsed.data, updated_at: now })
     .eq('id', id)
@@ -411,10 +457,28 @@ habitsRouter.put('/:id', async (req, res) => {
     .select()
     .maybeSingle();
 
+  if (error && isMissingSchemaError(error)) {
+    const fallback = await supabase
+      .from('habits')
+      .update({
+        title: parsed.data.title,
+        description: parsed.data.description,
+        color: parsed.data.color,
+        target_days: parsed.data.target_days,
+        updated_at: now,
+      })
+      .eq('id', id)
+      .eq('user_id', req.auth.sub)
+      .select()
+      .maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) return res.status(500).json({ error: 'Failed to update habit' });
   if (!data) return res.status(404).json({ error: 'Not found' });
 
-  const habit = data as HabitRow;
+  const habit = normalizeHabitRow(data as Record<string, unknown>);
   void afterHabitChange(req.auth.sub, habit);
 
   const { logsByHabit, freezesByHabit } = await loadHabitContext(req.auth.sub, [id], todayString());
@@ -447,7 +511,7 @@ habitsRouter.post('/:id/log', async (req, res) => {
 
   if (!habit) return res.status(404).json({ error: 'Not found' });
 
-  const h = habit as HabitRow;
+  const h = normalizeHabitRow(habit as Record<string, unknown>);
   const value = parsed.data.value;
   const completed = isGoalMet(h, value);
   const now = new Date().toISOString();
@@ -460,26 +524,33 @@ habitsRouter.post('/:id/log', async (req, res) => {
     .eq('date', date)
     .maybeSingle();
 
+  const richLog = {
+    value,
+    completed,
+    completed_at: completed ? now : null,
+    note: parsed.data.note ?? '',
+  };
+
   if (existing) {
-    await supabase
-      .from('habit_logs')
-      .update({
-        value,
-        completed,
-        completed_at: completed ? now : null,
-        note: parsed.data.note ?? '',
-      })
-      .eq('id', existing.id);
+    const updated = await supabase.from('habit_logs').update(richLog).eq('id', existing.id);
+    if (updated.error && isMissingSchemaError(updated.error)) {
+      await supabase.from('habit_logs').update({ completed }).eq('id', existing.id);
+    }
   } else {
-    await supabase.from('habit_logs').insert({
+    const inserted = await supabase.from('habit_logs').insert({
       habit_id: id,
       user_id: req.auth.sub,
       date,
-      value,
-      completed,
-      completed_at: completed ? now : null,
-      note: parsed.data.note ?? '',
+      ...richLog,
     });
+    if (inserted.error && isMissingSchemaError(inserted.error)) {
+      await supabase.from('habit_logs').insert({
+        habit_id: id,
+        user_id: req.auth.sub,
+        date,
+        completed,
+      });
+    }
   }
 
   if (completed) {
@@ -559,13 +630,25 @@ habitsRouter.delete('/:id', async (req, res) => {
   if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
 
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('habits')
     .update({ status: 'archived', updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', req.auth.sub)
     .select('id')
     .maybeSingle();
+
+  if (error && isMissingSchemaError(error)) {
+    const removed = await supabase
+      .from('habits')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.auth.sub)
+      .select('id')
+      .maybeSingle();
+    data = removed.data;
+    error = removed.error;
+  }
 
   if (error) return res.status(500).json({ error: 'Failed to delete habit' });
   if (!data) return res.status(404).json({ error: 'Not found' });
