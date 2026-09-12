@@ -12,8 +12,13 @@ import { AuthPage } from './pages/AuthPage';
 import { LegalPage } from './pages/LegalPage';
 import { SplashLoader } from './components/SplashLoader';
 import { ReminderToast } from './components/ReminderToast';
+import { OnboardingFlow } from './components/OnboardingFlow';
+import { DayBriefing } from './components/DayBriefing';
+import { QuickAddFab } from './components/QuickAddFab';
+import { InstallPrompt } from './components/InstallPrompt';
+import { OfflineBanner } from './components/OfflineBanner';
 import { useReminders } from './hooks/useReminders';
-import { Task, ViewMode, ReminderNotification } from './lib/types';
+import { Task, TaskFormData, ViewMode, ReminderNotification } from './lib/types';
 import { todayString } from './lib/utils';
 
 function legalPath(): 'privacy' | 'terms' | null {
@@ -23,16 +28,53 @@ function legalPath(): 'privacy' | 'terms' | null {
   return null;
 }
 
+function readLaunchIntent(): {
+  action?: string;
+  draft?: Partial<TaskFormData>;
+} {
+  const params = new URLSearchParams(window.location.search);
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  const action = params.get('action') ?? undefined;
+
+  if (path === '/share' || params.has('title') || params.has('text') || params.has('url')) {
+    const title = params.get('title')?.trim() || 'Shared item';
+    const text = params.get('text')?.trim() || '';
+    const url = params.get('url')?.trim() || '';
+    const description = [text, url].filter(Boolean).join('\n\n');
+    return {
+      action: 'add-task',
+      draft: {
+        title: title.slice(0, 120),
+        description: description.slice(0, 2000),
+        date: todayString(),
+        priority: 'medium',
+        status: 'pending',
+      },
+    };
+  }
+
+  return { action };
+}
+
+function clearLaunchParams() {
+  const url = new URL(window.location.href);
+  if (url.pathname === '/share') url.pathname = '/';
+  ['action', 'title', 'text', 'url', 'source', 'replan'].forEach((k) => url.searchParams.delete(k));
+  window.history.replaceState({}, '', url.pathname + url.search);
+}
+
 function AppContent() {
-  const { state, addNotification } = useTaskContext();
+  const { state, addNotification, clearPlan } = useTaskContext();
   const { tasks, notifications, darkMode } = state;
 
   const [showForm, setShowForm] = useState(false);
   const [showFocus, setShowFocus] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
+  const [taskDraft, setTaskDraft] = useState<Partial<TaskFormData> | undefined>();
   const [view, setView] = useState<ViewMode>('dashboard');
   const [selectedDate, setSelectedDate] = useState(todayString());
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [openHabitForm, setOpenHabitForm] = useState(false);
 
   const handleViewChange = useCallback((next: ViewMode) => {
     setView(next);
@@ -53,9 +95,25 @@ function AppContent() {
 
   useReminders({ tasks, onNotify: handleNotify });
 
-  const handleOpenAdd = () => { setEditTask(null); setShowForm(true); };
-  const handleEdit = (task: Task) => { setEditTask(task); setShowForm(true); };
-  const handleClose = () => { setShowForm(false); setEditTask(null); };
+  const handleOpenAdd = (draft?: Partial<TaskFormData>) => {
+    setEditTask(null);
+    setTaskDraft(draft);
+    setShowForm(true);
+  };
+  const handleEdit = (task: Task) => {
+    setEditTask(task);
+    setTaskDraft(undefined);
+    setShowForm(true);
+  };
+  const handleClose = () => {
+    setShowForm(false);
+    setEditTask(null);
+    setTaskDraft(undefined);
+  };
+  const handleOpenHabit = () => {
+    setOpenHabitForm(true);
+    setView('habits');
+  };
 
   const handleNotificationTaskClick = useCallback(
     (taskId: string) => {
@@ -64,6 +122,39 @@ function AppContent() {
     },
     [tasks]
   );
+
+  useEffect(() => {
+    const intent = readLaunchIntent();
+    if (!intent.action && !intent.draft) return;
+
+    if (intent.action === 'add-task' || intent.draft) {
+      handleOpenAdd(intent.draft);
+    } else if (intent.action === 'today') {
+      goToDashboard();
+      if (new URLSearchParams(window.location.search).get('replan') === '1') clearPlan();
+    } else if (intent.action === 'focus') {
+      setShowFocus(true);
+    } else if (intent.action === 'habits') {
+      handleOpenHabit();
+    }
+
+    clearLaunchParams();
+  }, []);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'DAYLY_NOTIFICATION_CLICK' || !event.data.url) return;
+      const url = new URL(event.data.url, window.location.origin);
+      window.history.replaceState({}, '', url.pathname + url.search);
+      const intent = readLaunchIntent();
+      if (intent.action === 'focus') setShowFocus(true);
+      else if (intent.action === 'habits') handleOpenHabit();
+      else goToDashboard();
+      clearLaunchParams();
+    };
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onMessage);
+  }, [goToDashboard]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -88,11 +179,13 @@ function AppContent() {
   return (
     <div className={`min-h-screen transition-colors duration-300 overflow-x-hidden ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
       <Navbar
-        onAddTask={handleOpenAdd}
+        onAddTask={() => handleOpenAdd()}
         onNavigateHome={goToDashboard}
         onNotificationTaskClick={handleNotificationTaskClick}
         onMenuClick={() => setMobileNavOpen(true)}
       />
+
+      <OfflineBanner />
 
       <div className="flex pt-14 sm:pt-16 min-h-screen">
         <div className="hidden md:block">
@@ -107,6 +200,8 @@ function AppContent() {
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
               onFocus={() => setShowFocus(true)}
+              openHabitForm={openHabitForm}
+              onHabitFormOpened={() => setOpenHabitForm(false)}
             />
           </div>
         </main>
@@ -118,6 +213,9 @@ function AppContent() {
         onOpenMenu={() => setMobileNavOpen(true)}
         darkMode={darkMode}
       />
+
+      <QuickAddFab darkMode={darkMode} onAddTask={() => handleOpenAdd()} onAddHabit={handleOpenHabit} />
+      <InstallPrompt />
 
       {mobileNavOpen && (
         <div className="md:hidden fixed inset-0 z-50">
@@ -132,8 +230,10 @@ function AppContent() {
         </div>
       )}
 
-      {showForm && <TaskForm onClose={handleClose} editTask={editTask} />}
+      {showForm && <TaskForm onClose={handleClose} editTask={editTask} initialDraft={taskDraft} />}
       {showFocus && <FocusMode onClose={() => setShowFocus(false)} />}
+      <OnboardingFlow />
+      <DayBriefing />
       <ReminderToast notifications={notifications} />
     </div>
   );

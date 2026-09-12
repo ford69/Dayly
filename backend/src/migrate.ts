@@ -28,6 +28,15 @@ async function migrate() {
     }
   }
 
+  // Optional PWA table — warn only until migration is applied
+  {
+    const { error } = await supabase.from('push_subscriptions').select('*').limit(0);
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Optional table push_subscriptions missing — apply 20260630000000_push_subscriptions.sql for Web Push.');
+    }
+  }
+
   // eslint-disable-next-line no-console
   console.log('Database schema verified: users, tasks, habits, habit_logs, task_dependencies, focus_sessions, workspaces, notification_queue, daily_stats');
 }

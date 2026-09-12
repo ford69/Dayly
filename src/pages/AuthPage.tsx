@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { useAuth } from '../context/AuthContext';
 
 type Mode = 'login' | 'signup';
@@ -10,7 +11,6 @@ export function AuthPage() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
 
   const title = useMemo(() => (mode === 'login' ? 'Welcome back' : 'Welcome'), [mode]);
   const subtitle = useMemo(
@@ -18,61 +18,17 @@ export function AuthPage() {
     [mode]
   );
 
-  useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId || !googleButtonRef.current) return;
-    type GoogleApi = {
-      accounts?: {
-        id?: {
-          initialize: (config: { client_id: string; callback: (response: { credential?: string }) => void }) => void;
-          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
-        };
-      };
-    };
-    const google = (window as Window & { google?: GoogleApi }).google;
+  const handleGoogleCredential = useCallback(
+    async (credential: string) => {
+      setError(null);
+      await loginWithGoogle(credential);
+    },
+    [loginWithGoogle]
+  );
 
-    const loadAndRender = () => {
-      const currentGoogle = (window as Window & { google?: GoogleApi }).google;
-      if (!currentGoogle?.accounts?.id || !googleButtonRef.current) return;
-
-      currentGoogle.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (response: { credential?: string }) => {
-          if (!response.credential) return;
-          try {
-            await loginWithGoogle(response.credential);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : 'Google sign-in failed');
-          }
-        },
-      });
-
-      googleButtonRef.current.innerHTML = '';
-      currentGoogle.accounts.id.renderButton(googleButtonRef.current, {
-        theme: 'outline',
-        size: 'large',
-        shape: 'pill',
-        text: mode === 'login' ? 'signin_with' : 'signup_with',
-        width: 360,
-      });
-    };
-
-    if (google?.accounts?.id) {
-      loadAndRender();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = loadAndRender;
-    document.head.appendChild(script);
-
-    return () => {
-      script.onload = null;
-    };
-  }, [mode, loginWithGoogle]);
+  const handleGoogleError = useCallback((message: string) => {
+    setError(message);
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -180,18 +136,16 @@ export function AuthPage() {
               </button>
             </form>
 
-            {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
-              <>
-                <div className="mt-4 mb-3 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-slate-200" />
-                  <span className="text-xs text-slate-500">or continue with</span>
-                  <div className="h-px flex-1 bg-slate-200" />
-                </div>
-                <div className="flex justify-center">
-                  <div ref={googleButtonRef} />
-                </div>
-              </>
-            )}
+            <div className="mt-4 mb-3 flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs text-slate-500">or continue with</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+            <GoogleSignInButton
+              mode={mode}
+              onCredential={handleGoogleCredential}
+              onError={handleGoogleError}
+            />
 
             <div className="mt-5 text-center text-xs text-slate-500">
               {mode === 'login' ? (

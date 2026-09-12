@@ -109,6 +109,11 @@ authRouter.post('/login', async (req, res) => {
 
   if (error || !user) return res.status(401).json({ error: 'Invalid email or password' });
 
+  // Google-only accounts have an unusable password hash — force Google sign-in
+  if (!user.password_hash) {
+    return res.status(401).json({ error: 'This account uses Google sign-in' });
+  }
+
   const ok = await bcrypt.compare(parsed.data.password, user.password_hash);
   if (!ok) return res.status(401).json({ error: 'Invalid email or password' });
 
@@ -124,7 +129,9 @@ authRouter.post('/logout', async (_req, res) => {
 });
 
 authRouter.post('/google', async (req, res) => {
-  if (!env.GOOGLE_CLIENT_ID) return res.status(500).json({ error: 'GOOGLE_CLIENT_ID is not configured' });
+  if (!env.GOOGLE_CLIENT_ID) {
+    return res.status(500).json({ error: 'Google sign-in is not configured on the server' });
+  }
 
   const parsed = googleCredentialSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid Google credential' });
@@ -137,6 +144,9 @@ authRouter.post('/google', async (req, res) => {
     const payload = ticket.getPayload();
     const email = payload?.email?.trim().toLowerCase();
     if (!email) return res.status(401).json({ error: 'Google account has no email' });
+    if (payload?.email_verified === false) {
+      return res.status(401).json({ error: 'Google email is not verified' });
+    }
 
     const supabase = getSupabase();
     let { data: user } = await supabase
@@ -146,9 +156,11 @@ authRouter.post('/google', async (req, res) => {
       .maybeSingle();
 
     if (!user) {
+      // Unusable hash so this account can only sign in with Google
+      const passwordHash = await bcrypt.hash(`google:${payload?.sub ?? email}:${Date.now()}`, 12);
       const { data: created, error } = await supabase
         .from('users')
-        .insert({ email, password_hash: '' })
+        .insert({ email, password_hash: passwordHash })
         .select('id, email, created_at')
         .single();
 

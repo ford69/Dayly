@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { z } from 'zod';
+import { getSupabase } from '../db';
 import { sendEmail } from '../email/brevo';
 import { requireAuth, type AuthedRequest } from '../middleware/requireAuth';
 
@@ -32,3 +34,37 @@ alertsRouter.post('/test', async (req, res) => {
   return res.json({ ok: true });
 });
 
+const pushSchema = z.object({
+  endpoint: z.string().url(),
+  keys: z.object({
+    p256dh: z.string().min(1),
+    auth: z.string().min(1),
+  }),
+});
+
+alertsRouter.post('/push-subscribe', async (req, res) => {
+  const user = (req as AuthedRequest).auth;
+  const parsed = pushSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid push subscription' });
+
+  const supabase = getSupabase();
+  const { error } = await supabase.from('push_subscriptions').upsert(
+    {
+      user_id: user.sub,
+      endpoint: parsed.data.endpoint,
+      p256dh: parsed.data.keys.p256dh,
+      auth: parsed.data.keys.auth,
+      user_agent: String(req.headers['user-agent'] ?? '').slice(0, 300),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,endpoint' }
+  );
+
+  if (error) {
+    return res.status(500).json({
+      error: 'Failed to save push subscription. Apply the push_subscriptions migration if needed.',
+    });
+  }
+
+  return res.json({ ok: true });
+});

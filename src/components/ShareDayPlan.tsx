@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
-import { X, Copy, Check, Download } from 'lucide-react';
+import { X, Copy, Check, Download, Share2 } from 'lucide-react';
 import { TodaySummary, Task } from '../lib/types';
 import { formatDate, formatTime } from '../lib/utils';
+import { shareContent } from '../lib/pwa';
 
 interface ShareDayPlanProps {
   summary: TodaySummary;
@@ -53,6 +54,17 @@ export function ShareDayPlan({ summary, tasks, darkMode, onClose }: ShareDayPlan
     }
   };
 
+  const shareNative = async () => {
+    const shared = await shareContent({
+      title: 'My Dayly plan',
+      text: shareText,
+      url: window.location.origin,
+    });
+    if (!shared) await copyText();
+  };
+
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div
@@ -101,23 +113,34 @@ export function ShareDayPlan({ summary, tasks, darkMode, onClose }: ShareDayPlan
             </ul>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => void copyText()}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border ${
-                darkMode ? 'border-gray-700 hover:bg-gray-800 text-gray-200' : 'border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied!' : 'Copy text'}
-            </button>
-            <button
-              onClick={() => void downloadImage()}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              <Download className="w-4 h-4" />
-              Save image
-            </button>
+          <div className="flex flex-col gap-2">
+            {canShare && (
+              <button
+                onClick={() => void shareNative()}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 hover:bg-slate-800 text-white"
+              >
+                <Share2 className="w-4 h-4" />
+                Share to WhatsApp, Messages…
+              </button>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => void copyText()}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border ${
+                  darkMode ? 'border-gray-700 hover:bg-gray-800 text-gray-200' : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'Copied!' : 'Copy text'}
+              </button>
+              <button
+                onClick={() => void downloadImage()}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                <Download className="w-4 h-4" />
+                Save image
+              </button>
+            </div>
           </div>
         </div>
       </div>

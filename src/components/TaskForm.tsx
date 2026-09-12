@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Flag, AlignLeft, Type, AlertCircle, Repeat, Link2 } from 'lucide-react';
+import { X, Calendar, Clock, Flag, AlignLeft, Type, AlertCircle, Repeat, Link2, Target } from 'lucide-react';
 import { Task, TaskFormData, Priority, Status, RecurrenceRule } from '../lib/types';
 import { useTaskContext } from '../context/TaskContext';
+import { useHabits } from '../context/HabitContext';
 import { todayString, timeToMinutes, RECURRENCE_LABELS } from '../lib/utils';
 
 interface TaskFormProps {
   onClose: () => void;
   editTask?: Task | null;
+  initialDraft?: Partial<TaskFormData>;
 }
 
 const defaultForm: TaskFormData = {
@@ -24,9 +26,11 @@ const defaultForm: TaskFormData = {
 
 const recurrenceOptions: RecurrenceRule[] = ['none', 'daily', 'weekdays', 'weekly', 'monthly'];
 
-export function TaskForm({ onClose, editTask }: TaskFormProps) {
+export function TaskForm({ onClose, editTask, initialDraft }: TaskFormProps) {
   const { state, createTask, updateTask } = useTaskContext();
+  const { state: habitState, fetchLinks, syncTaskHabitLinks } = useHabits();
   const { darkMode, tasks } = state;
+  const { habits } = habitState;
   const [form, setForm] = useState<TaskFormData>(
     editTask
       ? {
@@ -41,12 +45,21 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
           recurrence_end: editTask.recurrence_end,
           depends_on: editTask.depends_on,
         }
-      : defaultForm
+      : { ...defaultForm, ...initialDraft }
   );
+  const [linkedHabitIds, setLinkedHabitIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [timeError, setTimeError] = useState('');
 
   const otherTasks = tasks.filter((t) => t.id !== editTask?.id && t.status === 'pending');
+  const activeHabits = habits.filter((h) => h.status !== 'archived');
+
+  useEffect(() => {
+    if (!editTask) return;
+    void fetchLinks({ taskId: editTask.id }).then((links) => {
+      setLinkedHabitIds(links.map((l) => l.habit_id));
+    });
+  }, [editTask, fetchLinks]);
 
   useEffect(() => {
     if (timeToMinutes(form.end_time) <= timeToMinutes(form.start_time)) {
@@ -56,6 +69,12 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
     }
   }, [form.start_time, form.end_time]);
 
+  const toggleHabitLink = (habitId: string) => {
+    setLinkedHabitIds((ids) =>
+      ids.includes(habitId) ? ids.filter((id) => id !== habitId) : [...ids, habitId]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim() || timeError) return;
@@ -63,8 +82,12 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
     try {
       if (editTask) {
         await updateTask(editTask.id, form);
+        await syncTaskHabitLinks(editTask.id, linkedHabitIds);
       } else {
-        await createTask(form);
+        const created = await createTask(form);
+        if (created && linkedHabitIds.length > 0) {
+          await syncTaskHabitLinks(created.id, linkedHabitIds);
+        }
       }
       onClose();
     } finally {
@@ -169,6 +192,33 @@ export function TaskForm({ onClose, editTask }: TaskFormProps) {
               ))}
             </div>
           </div>
+
+          {activeHabits.length > 0 && (
+            <div>
+              <label className={labelClass}><Target className="w-3.5 h-3.5" />Linked habits</label>
+              <p className={`text-xs mb-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                Completing this task will auto-check linked habits
+              </p>
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                {activeHabits.map((h) => (
+                  <label
+                    key={h.id}
+                    className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg cursor-pointer ${
+                      darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={linkedHabitIds.includes(h.id)}
+                      onChange={() => toggleHabitLink(h.id)}
+                      className="rounded"
+                    />
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>{h.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {otherTasks.length > 0 && (
             <div>

@@ -58,6 +58,9 @@ interface HabitContextValue {
   fetchHeatmap: (id: string, from?: string, to?: string) => Promise<HabitHeatmapCell[]>;
   fetchInsights: (id: string) => Promise<HabitInsights>;
   linkTask: (habitId: string, taskId: string) => Promise<void>;
+  unlinkTask: (habitId: string, taskId: string) => Promise<void>;
+  fetchLinks: (opts?: { taskId?: string; habitId?: string }) => Promise<{ habit_id: string; task_id: string; auto_complete: boolean }[]>;
+  syncTaskHabitLinks: (taskId: string, habitIds: string[]) => Promise<void>;
 }
 
 const HabitContext = createContext<HabitContextValue | null>(null);
@@ -180,6 +183,35 @@ export function HabitProvider({ children }: { children: ReactNode }) {
     await apiFetch(`/api/habits/${habitId}/link-task`, { method: 'POST', json: { task_id: taskId } });
   }, []);
 
+  const unlinkTask = useCallback(async (habitId: string, taskId: string) => {
+    await apiFetch(`/api/habits/${habitId}/link-task/${taskId}`, { method: 'DELETE' });
+  }, []);
+
+  const fetchLinks = useCallback(async (opts?: { taskId?: string; habitId?: string }) => {
+    const params = new URLSearchParams();
+    if (opts?.taskId) params.set('task_id', opts.taskId);
+    if (opts?.habitId) params.set('habit_id', opts.habitId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const data = await apiFetch<{ links: { habit_id: string; task_id: string; auto_complete: boolean }[] }>(
+      `/api/habits/links${qs}`
+    );
+    return data.links ?? [];
+  }, []);
+
+  const syncTaskHabitLinks = useCallback(
+    async (taskId: string, habitIds: string[]) => {
+      const existing = await fetchLinks({ taskId });
+      const current = new Set(existing.map((l) => l.habit_id));
+      const next = new Set(habitIds);
+
+      await Promise.all([
+        ...[...next].filter((id) => !current.has(id)).map((habitId) => linkTask(habitId, taskId)),
+        ...[...current].filter((id) => !next.has(id)).map((habitId) => unlinkTask(habitId, taskId)),
+      ]);
+    },
+    [fetchLinks, linkTask, unlinkTask]
+  );
+
   useEffect(() => {
     void fetchHabits();
     void fetchWeekly();
@@ -202,6 +234,9 @@ export function HabitProvider({ children }: { children: ReactNode }) {
         fetchHeatmap,
         fetchInsights,
         linkTask,
+        unlinkTask,
+        fetchLinks,
+        syncTaskHabitLinks,
       }}
     >
       {children}

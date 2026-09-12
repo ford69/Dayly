@@ -154,6 +154,28 @@ habitsRouter.get('/templates', (_req, res) => {
   return res.json({ templates: HABIT_TEMPLATES });
 });
 
+habitsRouter.get('/links', async (req, res) => {
+  if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
+
+  const taskId = typeof req.query.task_id === 'string' ? req.query.task_id : null;
+  const habitId = typeof req.query.habit_id === 'string' ? req.query.habit_id : null;
+  if (taskId && !isUuid(taskId)) return res.status(400).json({ error: 'Invalid task_id' });
+  if (habitId && !isUuid(habitId)) return res.status(400).json({ error: 'Invalid habit_id' });
+
+  const supabase = getSupabase();
+  let query = supabase
+    .from('habit_task_links')
+    .select('id, habit_id, task_id, auto_complete')
+    .eq('user_id', req.auth.sub);
+
+  if (taskId) query = query.eq('task_id', taskId);
+  if (habitId) query = query.eq('habit_id', habitId);
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: 'Failed to load links' });
+  return res.json({ links: data ?? [] });
+});
+
 habitsRouter.get('/weekly', async (req, res) => {
   if (!req.auth?.sub) return res.status(401).json({ error: 'Not authenticated' });
   const weekStart =

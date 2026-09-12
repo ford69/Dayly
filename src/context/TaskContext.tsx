@@ -1,5 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
-import { apiFetch } from '../lib/api';
+import { apiFetch, OfflineError, rememberTasksCache } from '../lib/api';
+import { readCachedTasks, upsertCachedTask, removeCachedTask } from '../lib/offlineStore';
+import { updateAppBadge } from '../lib/pwa';
 import { Task, TaskFormData, ReminderNotification, PlanSuggestion } from '../lib/types';
 import { todayString } from '../lib/utils';
 
@@ -83,7 +85,7 @@ function taskReducer(state: TaskState, action: TaskAction): TaskState {
 interface TaskContextValue {
   state: TaskState;
   fetchTasks: (opts?: { date?: string; from?: string; to?: string }) => Promise<void>;
-  createTask: (data: TaskFormData) => Promise<void>;
+  createTask: (data: TaskFormData) => Promise<Task | null>;
   updateTask: (id: string, data: Partial<TaskFormData>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleStatus: (task: Task) => Promise<void>;
@@ -127,7 +129,20 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       const qs = params.toString() ? `?${params.toString()}` : '';
       const data = await apiFetch<{ tasks: Task[] }>(`/api/tasks${qs}`);
       dispatch({ type: 'SET_TASKS', payload: data.tasks ?? [] });
-    } catch {
+      void rememberTasksCache(data.tasks ?? []);
+    } catch (err) {
+      if (err instanceof OfflineError || !navigator.onLine) {
+        const cached = (await readCachedTasks<Task>()).filter((t) => {
+          if (opts?.date) return t.date === opts.date;
+          if (opts?.from && opts?.to) return t.date >= opts.from && t.date <= opts.to;
+          return true;
+        });
+        if (cached.length) {
+          dispatch({ type: 'SET_TASKS', payload: cached });
+          dispatch({ type: 'SET_ERROR', payload: null });
+          return;
+        }
+      }
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load tasks' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -136,36 +151,87 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
   const createTask = useCallback(async (data: TaskFormData) => {
     dispatch({ type: 'SET_ERROR', payload: null });
+    const optimistic: Task = {
+      id: `offline-${crypto.randomUUID()}`,
+      title: data.title,
+      description: data.description,
+      date: data.date,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      priority: data.priority,
+      status: data.status,
+      recurrence_rule: data.recurrence_rule,
+      recurrence_parent_id: null,
+      recurrence_end: data.recurrence_end,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      depends_on: data.depends_on ?? [],
+      blocked: false,
+    };
+
     try {
-      const created = await apiFetch<{ task: Task }>('/api/tasks', { method: 'POST', json: data });
+      const created = await apiFetch<{ task: Task }>('/api/tasks', {
+        method: 'POST',
+        json: data,
+        offlineQueue: true,
+        offlineLabel: `Create task “${data.title}”`,
+      });
       dispatch({ type: 'ADD_TASK', payload: created.task });
+      void upsertCachedTask(created.task);
       if (data.recurrence_rule && data.recurrence_rule !== 'none') {
         await fetchTasks();
       }
-    } catch {
+      return created.task;
+    } catch (err) {
+      if (err instanceof OfflineError) {
+        dispatch({ type: 'ADD_TASK', payload: optimistic });
+        void upsertCachedTask(optimistic);
+        return optimistic;
+      }
       dispatch({ type: 'SET_ERROR', payload: 'Failed to create task' });
+      return null;
     }
   }, [fetchTasks]);
 
   const updateTask = useCallback(async (id: string, data: Partial<TaskFormData>) => {
     dispatch({ type: 'SET_ERROR', payload: null });
+    const existing = state.tasks.find((t) => t.id === id);
     try {
       const updated = await apiFetch<{ task: Task }>(`/api/tasks/${id}`, {
         method: 'PUT',
         json: data,
+        offlineQueue: true,
+        offlineLabel: `Update task`,
       });
       dispatch({ type: 'UPDATE_TASK', payload: updated.task });
-    } catch {
+      void upsertCachedTask(updated.task);
+    } catch (err) {
+      if (err instanceof OfflineError && existing) {
+        const local = { ...existing, ...data, updated_at: new Date().toISOString() } as Task;
+        dispatch({ type: 'UPDATE_TASK', payload: local });
+        void upsertCachedTask(local);
+        return;
+      }
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update task' });
     }
-  }, []);
+  }, [state.tasks]);
 
   const deleteTask = useCallback(async (id: string) => {
     dispatch({ type: 'SET_ERROR', payload: null });
     try {
-      await apiFetch<{ ok: true }>(`/api/tasks/${id}`, { method: 'DELETE' });
+      await apiFetch<{ ok: true }>(`/api/tasks/${id}`, {
+        method: 'DELETE',
+        offlineQueue: true,
+        offlineLabel: 'Delete task',
+      });
       dispatch({ type: 'DELETE_TASK', payload: id });
-    } catch {
+      void removeCachedTask(id);
+    } catch (err) {
+      if (err instanceof OfflineError) {
+        dispatch({ type: 'DELETE_TASK', payload: id });
+        void removeCachedTask(id);
+        return;
+      }
       dispatch({ type: 'SET_ERROR', payload: 'Failed to delete task' });
     }
   }, []);
@@ -279,6 +345,14 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     fetchTasks();
     fetchSmartReminder();
   }, [fetchTasks, fetchSmartReminder]);
+
+  useEffect(() => {
+    const today = todayString();
+    const badgeCount = state.tasks.filter(
+      (t) => t.date === today && t.status === 'pending' && (t.priority === 'high' || t.priority === 'medium')
+    ).length;
+    void updateAppBadge(badgeCount);
+  }, [state.tasks]);
 
   return (
     <TaskContext.Provider

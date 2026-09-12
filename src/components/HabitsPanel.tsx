@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, X, LayoutTemplate } from 'lucide-react';
 import { useHabits } from '../context/HabitContext';
 import { useTaskContext } from '../context/TaskContext';
@@ -9,7 +9,12 @@ import { HabitHeatmapLoader } from './HabitHeatmap';
 import { HabitWeeklyDashboard } from './HabitWeeklyDashboard';
 import { HabitTemplatesModal } from './HabitTemplatesModal';
 
-export function HabitsPanel() {
+interface HabitsPanelProps {
+  forceOpenForm?: boolean;
+  onForceOpenFormHandled?: () => void;
+}
+
+export function HabitsPanel({ forceOpenForm, onForceOpenFormHandled }: HabitsPanelProps) {
   const {
     state,
     createHabit,
@@ -32,6 +37,14 @@ export function HabitsPanel() {
   const [expandedHeatmap, setExpandedHeatmap] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!forceOpenForm) return;
+    setEditing(null);
+    setFormError(null);
+    setShowForm(true);
+    onForceOpenFormHandled?.();
+  }, [forceOpenForm, onForceOpenFormHandled]);
 
   const todayHabits = habits.filter((h) => h.scheduled_today);
   const otherHabits = habits.filter((h) => !h.scheduled_today);

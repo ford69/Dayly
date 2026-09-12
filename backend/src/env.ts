@@ -14,7 +14,7 @@ export const env = {
   SUPABASE_URL: process.env.SUPABASE_URL ?? "",
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   JWT_SECRET: process.env.JWT_SECRET ?? "",
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "",
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || "",
   BREVO_API_KEY: process.env.BREVO_API_KEY ?? "",
   BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL ?? "",
   BREVO_SENDER_NAME: process.env.BREVO_SENDER_NAME ?? "My Daily Planner",

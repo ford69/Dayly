@@ -12,6 +12,7 @@ import { HabitsPanel } from '../components/HabitsPanel';
 import { PlanMyDay } from '../components/PlanMyDay';
 import { TodaySummary } from '../components/TodaySummary';
 import { HabitCheckIn } from '../components/HabitCheckIn';
+import { ProductivityInsights } from '../components/ProductivityInsights';
 import { Task, ViewMode, Priority, Status } from '../lib/types';
 import { todayString, formatDate, isTaskActive, getCurrentTimeMinutes, timeToMinutes, weekDates, startOfWeek } from '../lib/utils';
 
@@ -21,6 +22,8 @@ interface DashboardProps {
   selectedDate: string;
   onDateChange: (d: string) => void;
   onFocus: () => void;
+  openHabitForm?: boolean;
+  onHabitFormOpened?: () => void;
 }
 
 function StatCard({ label, value, icon: Icon, color, darkMode }: {
@@ -39,7 +42,7 @@ function StatCard({ label, value, icon: Icon, color, darkMode }: {
   );
 }
 
-export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }: DashboardProps) {
+export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus, openHabitForm, onHabitFormOpened }: DashboardProps) {
   const { state, fetchTasks, clearPlan } = useTaskContext();
   const { user } = useAuth();
   const { tasks, loading, darkMode, smartReminder } = state;
@@ -85,7 +88,14 @@ export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }:
   const completedToday = todayTasks.filter((t) => t.status === 'completed').length;
   const progress = todayTasks.length > 0 ? Math.round((completedToday / todayTasks.length) * 100) : 0;
 
-  if (view === 'habits') return <HabitsPanel />;
+  if (view === 'habits') {
+    return (
+      <HabitsPanel
+        forceOpenForm={openHabitForm}
+        onForceOpenFormHandled={onHabitFormOpened}
+      />
+    );
+  }
 
   if (view === 'week') {
     return (
@@ -147,6 +157,8 @@ export function Dashboard({ onEdit, view, selectedDate, onDateChange, onFocus }:
         </div>
 
         <HabitCheckIn />
+
+        <ProductivityInsights />
 
         {smartReminder && (
           <div className={`rounded-2xl border p-4 flex items-start gap-3 ${darkMode ? 'bg-amber-900/20 border-amber-700/50' : 'bg-amber-50 border-amber-200'}`}>
